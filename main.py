@@ -11,10 +11,13 @@ from telegram import InlineKeyboardButton, InlineKeyboardMarkup, Bot
 logging.basicConfig(format="%(asctime)s - %(name)s - %(levelname)s - %(message)s", level=logging.INFO)
 logger = logging.getLogger(__name__)
 
-# 🔴 APNA DATA YAHAN CONFIG KARO
+# 🔴 CONFIGURATION DATA
 TOKEN = "8735814245:AAFk849g-0ZEmZDINRwyWMTGSCzcOg5yRFg"
-# नोट: आप चाहें तो एक फिक्स चैनल या ग्रुप ID भी डाल सकते हैं जहां ऑटो सिग्नल भेजने हैं
 DEFAULT_CHAT_ID = "-1003993233052" 
+
+# 📞 OWNER SUPPORT DETAILS
+OWNER_MOBILE = "+91 8767812831"
+OWNER_EMAIL = "arjuntradar@gmail.com"
 
 bot = Bot(token=TOKEN)
 app = FastAPI()
@@ -33,50 +36,50 @@ SUPPORTED_PAIRS = {
     "USDMXNOTC": "USD/MXN OTC"
 }
 
+# Footer Support Block text for clean code reuse
+def get_support_footer():
+    return f"""━━━━━━━━━━━━━━━━━━━━
+📞 **OFFICIAL SUPPORT & CONTACT:**
+👤 **Owner:** Arjun
+📱 **Mobile:** {OWNER_MOBILE}
+📧 **Email:** {OWNER_EMAIL}
+💬 *Any issues or inquiries? Feel free to contact.*"""
+
 # 2-Column Grid Format
 def get_main_menu():
     keyboard = []
     row = []
     for index, (key, value) in enumerate(SUPPORTED_PAIRS.items()):
-        row.append(InlineKeyboardButton(text=value, callback_data=f"select_{key}"))
+        row.append({"text": value, "callback_data": f"select_{key}"})
         if len(row) == 2 or index == len(SUPPORTED_PAIRS) - 1:
             keyboard.append(row)
             row = []
-    return InlineKeyboardMarkup(keyboard)
+    return {"inline_keyboard": keyboard}
 
-# Control Buttons
+# Control Buttons Fixed Format
 def get_dashboard_buttons(pair_code):
-    return InlineKeyboardMarkup([
-        [
-            InlineKeyboardButton(text="🚀 ON Auto", callback_data=f"auto_on_{pair_code}"),
-            InlineKeyboardButton(text="🛑 OFF Auto", callback_data=f"auto_off_{pair_code}"),
-            InlineKeyboardButton(text="🔄 Re-Analyze", callback_data=f"recalc_{pair_code}")
-        ],
-        [
-            InlineKeyboardButton(text="🔍 Select Currency Menu (Start)", callback_data="back_menu")
+    return {
+        "inline_keyboard": [
+            [
+                {"text": "🚀 ON Auto", "callback_data": f"auto_on_{pair_code}"},
+                {"text": "🛑 OFF Auto", "callback_data": f"auto_off_{pair_code}"},
+                {"text": "🔄 Re-Analyze", "callback_data": f"recalc_{pair_code}"}
+            ],
+            [
+                {"text": "🔍 Select Currency Menu (Start)", "callback_data": "back_menu"}
+            ]
         ]
-    ])
+    }
 
 @app.get("/")
 def home():
     return {"status": "TradeFather Webhook Engine Running 24/7"}
 
 # ==================================================
-# 🔥 TRADINGVIEW WEBHOOK RECEIVER (100% ACCURATE)
+# 🔥 TRADINGVIEW WEBHOOK RECEIVER
 # ==================================================
 @app.post("/tradingview-webhook")
 async def receive_tradingview_signal(request: Request, background_tasks: BackgroundTasks):
-    """
-    ट्रेडिंगव्यू से आने वाले लाइव अलर्ट को कैप्चर करने का एंडपॉइंट।
-    ट्रेडिंगव्यू अलर्ट बॉक्स में यह JSON भेजना होगा:
-    {
-        "pair": "EURUSDOTC",
-        "action": "BUY ⬆️ (CALL)",
-        "price": "1.09452",
-        "sentiment": "STRONG BULLISH",
-        "accuracy": "99.8"
-    }
-    """
     try:
         data = await request.json()
         pair_code = data.get("pair", "EURUSDOTC")
@@ -87,8 +90,7 @@ async def receive_tradingview_signal(request: Request, background_tasks: Backgro
         
         pair_display = SUPPORTED_PAIRS.get(pair_code, pair_code)
         
-        dashboard = f"""
-👑 **TRADEFATHER 100% LIVE SIGNAL**
+        dashboard = f"""👑 **TRADEFATHER 100% LIVE SIGNAL**
 ━━━━━━━━━━━━━━━━━━━━
 💱 **Asset Pair :** {pair_display}
 💵 **Strike Price :** `{price}`
@@ -100,15 +102,22 @@ async def receive_tradingview_signal(request: Request, background_tasks: Backgro
 🎯 **AI Verified Accuracy :** `{accuracy}%`
 🔥 **Market Momentum   :** `{sentiment}`
 ⚖️ **Martingale Rule   :** `⚠️ USE 1ST MARTINGALE IF OTM`
-━━━━━━━━━━━━━━━━━━━━
-📊 *Note: Yeh tradingview server se aaya ekdam live aur accurate signal hai.*
+{get_support_footer()}
 """
-        # टेलीग्राम चैनल/ग्रुप में सीधे ब्रॉडकास्ट करें
         background_tasks.add_task(
             bot.send_message,
             chat_id=DEFAULT_CHAT_ID,
             text=dashboard,
-            reply_markup=get_dashboard_buttons(pair_code),
+            reply_markup=InlineKeyboardMarkup([
+                [
+                    InlineKeyboardButton(text="🚀 ON Auto", callback_data=f"auto_on_{pair_code}"),
+                    InlineKeyboardButton(text="🛑 OFF Auto", callback_data=f"auto_off_{pair_code}"),
+                    InlineKeyboardButton(text="🔄 Re-Analyze", callback_data=f"recalc_{pair_code}")
+                ],
+                [
+                    InlineKeyboardButton(text="🔍 Select Currency Menu (Start)", callback_data="back_menu")
+                ]
+            ]),
             parse_mode="Markdown"
         )
         return {"status": "Signal Broadcasted Successfully"}
@@ -117,59 +126,62 @@ async def receive_tradingview_signal(request: Request, background_tasks: Backgro
         return {"status": "error", "message": str(e)}
 
 # ==================================================
-# TELEGRAM POLLING WORKAROUND FOR FASTAPI
+# TELEGRAM WEBHOOK CONTROLLER
 # ==================================================
 @app.post("/telegram-updates")
 async def telegram_updates(request: Request):
-    """बटन क्लिक और स्टार्ट कमांड हैंडल करने के लिए"""
     try:
         update = await request.json()
+        
+        # 1. Text Message Handle (/start)
         if "message" in update:
             chat_id = update["message"]["chat"]["id"]
             text = update["message"].get("text", "")
             
             if text == "/start" or text == "/signal":
-                welcome_text = "🦅 **WELCOME TO TRADEFATHER 100% LIVE WEBHOOK BOT** 🦅\n━━━━━━━━━━━━━━━━━━━━\n💎 **Status:** Connected to TradingView Server\n⏱️ **Expiry:** 1 Minute Accurate\n\n👇 **Niche se currency choose karein:**"
+                welcome_text = f"🦅 **WELCOME TO TRADEFATHER LIVE WEBHOOK BOT** 🦅\n━━━━━━━━━━━━━━━━━━━━\n💎 **Status:** Connected to TradingView Server\n⏱️ **Expiry:** 1 Minute Accurate\n\n👇 **Niche se currency choose karein:**\n\n{get_support_footer()}"
                 requests.post(f"https://api.telegram.org/bot{TOKEN}/sendMessage", json={
-                    "chat_id": chat_id, "text": welcome_text, "reply_markup": get_main_menu().to_dict(), "parse_mode": "Markdown"
+                    "chat_id": chat_id, "text": welcome_text, "reply_markup": get_main_menu(), "parse_mode": "Markdown"
                 })
                 
+        # 2. Inline Button Clicks Handle
         elif "callback_query" in update:
             query = update["callback_query"]
             chat_id = query["message"]["chat"]["id"]
-            message_id = query["message"]["message_id"]
             data = query["data"]
             
-            # Answer Callback
+            # Instant response to Telegram server to clear loading state
             requests.post(f"https://api.telegram.org/bot{TOKEN}/answerCallbackQuery", json={"callback_query_id": query["id"]})
             
             if data == "back_menu":
+                welcome_text = f"🔍 **Please select currency from grid:**\n\n{get_support_footer()}"
                 requests.post(f"https://api.telegram.org/bot{TOKEN}/sendMessage", json={
-                    "chat_id": chat_id, "text": "🔍 **Please select currency from grid:**", "reply_markup": get_main_menu().to_dict()
+                    "chat_id": chat_id, "text": welcome_text, "reply_markup": get_main_menu(), "parse_mode": "Markdown"
                 })
+                
             elif data.startswith("select_") or data.startswith("recalc_"):
                 p_code = data.replace("select_", "").replace("recalc_", "")
                 p_disp = SUPPORTED_PAIRS.get(p_code, p_code)
                 
-                # यूजर को बताना कि लाइव सिग्नल ट्रेडिंगव्यू से आ रहे हैं
-                wait_text = f"⏳ **{p_disp}** का लाइव सिग्नल जैसे ही TradingView पर बनेगा, वह तुरंत यहाँ ऑटो-फ्लैश हो जाएगा। कृपया तब तक वेट करें या अलर्ट चेक करें।"
+                wait_text = f"⏳ **{p_disp}** का लाइव सिग्नल जैसे ही TradingView पर बनेगा, वह तुरंत यहाँ ऑटो-फ्लैश हो जाएगा। कृपया तब तक वेट करें या अलर्ट चेक करें।\n\n{get_support_footer()}"
                 requests.post(f"https://api.telegram.org/bot{TOKEN}/sendMessage", json={
                     "chat_id": chat_id, "text": wait_text, "reply_markup": get_dashboard_buttons(p_code), "parse_mode": "Markdown"
                 })
+                
             elif data.startswith("auto_on_"):
-                p_code = data.replace("auto_on_", "")
                 requests.post(f"https://api.telegram.org/bot{TOKEN}/sendMessage", json={
-                    "chat_id": chat_id, "text": f"🚀 **AUTOMATION MODE: ON**\nTradingView से आने वाले सिग्नल्स अब इस चैट में लाइव फॉरवर्ड होना शुरू हो चुके हैं।"
+                    "chat_id": chat_id, "text": f"🚀 **AUTOMATION MODE: ON**\nTradingView से आने वाले सिग्नल्स अब इस चैट में लाइव फॉरवर्ड होना शुरू हो चुके हैं।\n\n{get_support_footer()}", "parse_mode": "Markdown"
                 })
+                
             elif data.startswith("auto_off_"):
                 requests.post(f"https://api.telegram.org/bot{TOKEN}/sendMessage", json={
-                    "chat_id": chat_id, "text": "🛑 **AUTOMATION MODE: OFF**\nऑटो सिग्नल पाइपलाइन को रोक दिया गया है।"
+                    "chat_id": chat_id, "text": f"🛑 **AUTOMATION MODE: OFF**\nऑटो सिग्anal पाइपलाइन को रोक दिया गया है।\n\n{get_support_footer()}", "parse_mode": "Markdown"
                 })
         return {"ok": True}
     except Exception as e:
+        logger.error(f"Telegram Updates Error: {str(e)}")
         return {"error": str(e)}
 
 if __name__ == "__main__":
-    # लोकल या रेंडर पर रन करने के लिए पोर्ट सेट करें
     port = int(os.environ.get("PORT", 8000))
     uvicorn.run(app, host="0.0.0.0", port=port)
