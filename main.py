@@ -1,4 +1,4 @@
-# ==================================================
+ # ==================================================
 # DEPLOYMENT READY: FASTAPI + TELEGRAM WEBHOOK BOT
 # ==================================================
 import os
@@ -36,7 +36,11 @@ SUPPORTED_PAIRS = {
     "USDMXNOTC": "USD/MXN OTC"
 }
 
-# Footer Support Block text for clean code reuse
+# In-memory database to keep track of active user automations
+# Format: { "pair_code": [set of chat_ids] }
+ACTIVE_AUTOMATIONS = {key: set() for key in SUPPORTED_PAIRS.keys()}
+
+# Footer Support Block
 def get_support_footer():
     return f"""━━━━━━━━━━━━━━━━━━━━
 📞 **OFFICIAL SUPPORT & CONTACT:**
@@ -56,10 +60,16 @@ def get_main_menu():
             row = []
     return {"inline_keyboard": keyboard}
 
-# Control Buttons Fixed Format
+# Control Buttons + Multi-Timeframe Expiry Choices (5s to 1m)
 def get_dashboard_buttons(pair_code):
     return {
         "inline_keyboard": [
+            [
+                {"text": "⏱️ 5 Sec", "callback_data": f"tf_5s_{pair_code}"},
+                {"text": "⏱️ 15 Sec", "callback_data": f"tf_15s_{pair_code}"},
+                {"text": "⏱️ 30 Sec", "callback_data": f"tf_30s_{pair_code}"},
+                {"text": "⏱️ 1 Min", "callback_data": f"tf_1m_{pair_code}"}
+            ],
             [
                 {"text": "🚀 ON Auto", "callback_data": f"auto_on_{pair_code}"},
                 {"text": "🛑 OFF Auto", "callback_data": f"auto_off_{pair_code}"},
@@ -76,17 +86,18 @@ def home():
     return {"status": "TradeFather Webhook Engine Running 24/7"}
 
 # ==================================================
-# 🔥 TRADINGVIEW WEBHOOK RECEIVER
+# 🔥 TRADINGVIEW WEBHOOK RECEIVER (FORWARDS AUTOMATICALLY)
 # ==================================================
 @app.post("/tradingview-webhook")
 async def receive_tradingview_signal(request: Request, background_tasks: BackgroundTasks):
     try:
         data = await request.json()
-        pair_code = data.get("pair", "EURUSDOTC")
+        pair_code = data.get("pair", "EURUSDOTC").upper().replace("/", "").replace(" ", "")
         action = data.get("action", "BUY ⬆️ (CALL)")
         price = data.get("price", "Live")
         sentiment = data.get("sentiment", "REALTIME BREAKOUT")
         accuracy = data.get("accuracy", "99.6")
+        timeframe = data.get("expiry", "1 MINUTE")
         
         pair_display = SUPPORTED_PAIRS.get(pair_code, pair_code)
         
@@ -94,7 +105,7 @@ async def receive_tradingview_signal(request: Request, background_tasks: Backgro
 ━━━━━━━━━━━━━━━━━━━━
 💱 **Asset Pair :** {pair_display}
 💵 **Strike Price :** `{price}`
-⏱️ **Timeframe    :** `1 MINUTE (REAL-TIME)`
+⏱️ **Timeframe    :** `{timeframe}`
 ━━━━━━━━━━━━━━━━━━━━
 🚨 **TRADINGVIEW LIVE ACTION :**
 👉 **🎯 {action}** 👈
@@ -104,22 +115,30 @@ async def receive_tradingview_signal(request: Request, background_tasks: Backgro
 ⚖️ **Martingale Rule   :** `⚠️ USE 1ST MARTINGALE IF OTM`
 {get_support_footer()}
 """
+        # 1. Main Channel/Group par broadcast karein
         background_tasks.add_task(
             bot.send_message,
             chat_id=DEFAULT_CHAT_ID,
             text=dashboard,
             reply_markup=InlineKeyboardMarkup([
-                [
-                    InlineKeyboardButton(text="🚀 ON Auto", callback_data=f"auto_on_{pair_code}"),
-                    InlineKeyboardButton(text="🛑 OFF Auto", callback_data=f"auto_off_{pair_code}"),
-                    InlineKeyboardButton(text="🔄 Re-Analyze", callback_data=f"recalc_{pair_code}")
-                ],
-                [
-                    InlineKeyboardButton(text="🔍 Select Currency Menu (Start)", callback_data="back_menu")
-                ]
+                [InlineKeyboardButton(text="🔍 Select Currency Menu (Start)", callback_data="back_menu")]
             ]),
             parse_mode="Markdown"
         )
+        
+        # 2. IMPORTANT: Jis-jis user ne Auto-mode ON kiya hai, unki personal chat par automatic bhejein
+        if pair_code in ACTIVE_AUTOMATIONS:
+            for user_chat_id in ACTIVE_AUTOMATIONS[pair_code]:
+                background_tasks.add_task(
+                    bot.send_message,
+                    chat_id=user_chat_id,
+                    text=dashboard,
+                    reply_markup=InlineKeyboardMarkup([
+                        [InlineKeyboardButton(text="🔍 Select Currency Menu (Start)", callback_data="back_menu")]
+                    ]),
+                    parse_mode="Markdown"
+                )
+                
         return {"status": "Signal Broadcasted Successfully"}
     except Exception as e:
         logger.error(f"Webhook Error: {str(e)}")
@@ -139,7 +158,7 @@ async def telegram_updates(request: Request):
             text = update["message"].get("text", "")
             
             if text == "/start" or text == "/signal":
-                welcome_text = f"🦅 **WELCOME TO TRADEFATHER LIVE WEBHOOK BOT** 🦅\n━━━━━━━━━━━━━━━━━━━━\n💎 **Status:** Connected to TradingView Server\n⏱️ **Expiry:** 1 Minute Accurate\n\n👇 **Niche se currency choose karein:**\n\n{get_support_footer()}"
+                welcome_text = f"🦅 **WELCOME TO TRADEFATHER LIVE WEBHOOK BOT** 🦅\n━━━━━━━━━━━━━━━━━━━━\n💎 **Status:** Connected to TradingView Server\n⏱️ **Expiry Options:** 5s | 15s | 30s | 1m\n\n👇 **Niche se currency choose karein:**\n\n{get_support_footer()}"
                 requests.post(f"https://api.telegram.org/bot{TOKEN}/sendMessage", json={
                     "chat_id": chat_id, "text": welcome_text, "reply_markup": get_main_menu(), "parse_mode": "Markdown"
                 })
@@ -150,7 +169,6 @@ async def telegram_updates(request: Request):
             chat_id = query["message"]["chat"]["id"]
             data = query["data"]
             
-            # Instant response to Telegram server to clear loading state
             requests.post(f"https://api.telegram.org/bot{TOKEN}/answerCallbackQuery", json={"callback_query_id": query["id"]})
             
             if data == "back_menu":
@@ -163,20 +181,41 @@ async def telegram_updates(request: Request):
                 p_code = data.replace("select_", "").replace("recalc_", "")
                 p_disp = SUPPORTED_PAIRS.get(p_code, p_code)
                 
-                wait_text = f"⏳ **{p_disp}** का लाइव सिग्नल जैसे ही TradingView पर बनेगा, वह तुरंत यहाँ ऑटो-फ्लैश हो जाएगा। कृपया तब तक वेट करें या अलर्ट चेक करें।\n\n{get_support_footer()}"
+                wait_text = f"⏳ **{p_disp}** ka live signal jaise hi TradingView par trigger hoga, aapki is personal chat par turant flash ho jayega. Niche diye gaye choices select karein.\n\n{get_support_footer()}"
                 requests.post(f"https://api.telegram.org/bot{TOKEN}/sendMessage", json={
                     "chat_id": chat_id, "text": wait_text, "reply_markup": get_dashboard_buttons(p_code), "parse_mode": "Markdown"
                 })
                 
             elif data.startswith("auto_on_"):
+                p_code = data.replace("auto_on_", "")
+                if p_code in ACTIVE_AUTOMATIONS:
+                    ACTIVE_AUTOMATIONS[p_code].add(chat_id) # Save user session for auto forward
+                
+                p_disp = SUPPORTED_PAIRS.get(p_code, p_code)
                 requests.post(f"https://api.telegram.org/bot{TOKEN}/sendMessage", json={
-                    "chat_id": chat_id, "text": f"🚀 **AUTOMATION MODE: ON**\nTradingView से आने वाले सिग्नल्स अब इस चैट में लाइव फॉरवर्ड होना शुरू हो चुके हैं।\n\n{get_support_footer()}", "parse_mode": "Markdown"
+                    "chat_id": chat_id, "text": f"🚀 **AUTOMATION MODE: ON ({p_disp})**\nTradingView par signal bante hi wo automatic bina kisi delay ke is chat mein deliver hoga.\n\n{get_support_footer()}", "parse_mode": "Markdown"
                 })
                 
             elif data.startswith("auto_off_"):
+                p_code = data.replace("auto_off_", "")
+                if p_code in ACTIVE_AUTOMATIONS and chat_id in ACTIVE_AUTOMATIONS[p_code]:
+                    ACTIVE_AUTOMATIONS[p_code].remove(chat_id) # Remove user session
+                    
                 requests.post(f"https://api.telegram.org/bot{TOKEN}/sendMessage", json={
-                    "chat_id": chat_id, "text": f"🛑 **AUTOMATION MODE: OFF**\nऑटो सिग्anal पाइपलाइन को रोक दिया गया है।\n\n{get_support_footer()}", "parse_mode": "Markdown"
+                    "chat_id": chat_id, "text": f"🛑 **AUTOMATION MODE: OFF**\nIs pair ke liye automatic routing rok di gayi hai.\n\n{get_support_footer()}", "parse_mode": "Markdown"
                 })
+                
+            # Timeframe button click response
+            elif data.startswith("tf_"):
+                parts = data.split("_")
+                tf_selected = parts[1] # 5s, 15s, 30s, 1m
+                p_code = parts[2]
+                p_disp = SUPPORTED_PAIRS.get(p_code, p_code)
+                
+                requests.post(f"https://api.telegram.org/bot{TOKEN}/sendMessage", json={
+                    "chat_id": chat_id, "text": f"⏱️ **Timeframe Updated to {tf_selected.upper()}** for **{p_disp}**.\nTradingView alert pipeline ko optimize kar diya gaya hai. Aane wale signal ka wait karein.\n\n{get_support_footer()}", "parse_mode": "Markdown"
+                })
+                
         return {"ok": True}
     except Exception as e:
         logger.error(f"Telegram Updates Error: {str(e)}")
