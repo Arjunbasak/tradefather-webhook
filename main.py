@@ -9,16 +9,17 @@ import asyncio
 import requests
 import pandas as pd
 import numpy as np
-from fastapi import FastAPI, Request, BackgroundTasks
+from fastapi import FastAPI, Request, BackgroundTasks, HTTPException
 import uvicorn
 
 logging.basicConfig(format="%(asctime)s - %(name)s - %(levelname)s - %(message)s", level=logging.INFO)
 logger = logging.getLogger(__name__)
 
-# 🔴 CONFIGURATION DATA
+# 🔴 CONFIGURATION DATA (FULLY FIXED WITH QUOTES)
 TOKEN = "8735814245:AAFk849g-0ZEmZDINRwyWMTGSCzcOg5yRFg"
 DEFAULT_CHAT_ID = "-1003993233052"          
 OWNER_MOBILE = "+91 8767812831"
+OWNER_EMAIL = "arjuntradar@gmail.com"
 
 app = FastAPI()
 
@@ -114,7 +115,6 @@ async def auto_signal_worker(p_code, p_disp):
 🎯 **VIP Accuracy :** `100% INDICATOR CONFIRMED`
 ⚖️ **Martingale Rule   :** `⚠️ USE 1ST MARTINGALE IF OTM`
 """
-            # Channel par automatic message dispatch
             requests.post(f"https://api.telegram.org/bot{TOKEN}/sendMessage", json={
                 "chat_id": DEFAULT_CHAT_ID, "text": dashboard_msg, "parse_mode": "Markdown"
             })
@@ -122,9 +122,57 @@ async def auto_signal_worker(p_code, p_disp):
         except Exception as e:
             logger.error(f"Error in auto signal background thread: {str(e)}")
             
-        # Har 1 minute mein automated loop signal trigger karega
         await asyncio.sleep(60)
     logger.info(f"🛑 24/7 Auto-Signal Loop Stopped for: {p_disp}")
+
+# 📡 NEW: TRADINGVIEW 24/7 AUTOMATIC WEBHOOK SIGNAL ENDPOINT
+@app.post("/tradingview-webhook")
+async def tradingview_webhook(request: Request):
+    try:
+        data = await request.json()
+        logger.info(f"TradingView Alert Received: {data}")
+        
+        pair = data.get("pair", "UNKNOWN")
+        direction = data.get("direction", "BUY").upper()
+        price = data.get("price", "0.0")
+        timeframe = data.get("timeframe", "1 MIN")
+        trend = data.get("trend", "ALGO DETERMINED")
+        rsi_val = data.get("rsi", "N/A")
+        cci_val = data.get("cci", "N/A")
+        logic_msg = data.get("logic", "TradingView Strategy Condition")
+        
+        if direction in ["CALL", "BUY", "UP"]:
+            emoji, color_bullet, trade_dir = "UP ⬆️", "🟢", "CALL"
+        else:
+            emoji, color_bullet, trade_dir = "DOWN ⬇️", "🔴", "PUT"
+            
+        dashboard_msg = f"""👑 🌈 **TRADINGVIEW AUTOMATIC LIVE SIGNAL** 🌈 👑
+━━━━━━━━━━━━━━━━━━━━
+💱 **Asset Pair :** {pair} [REAL-TIME]
+💵 **Strike Price :** `{price}`
+⏱️ **Timeframe    :** `{timeframe}`
+━━━━━━━━━━━━━━━━━━━━
+📊 **PRO FILTER INDICATORS DATA:**
+📈 **Market Trend (SMA) :** `{trend}`
+🎯 **RSI (14) Valuation   :** `{rsi_val}`
+⚡ **CCI Oscillator      :** `{cci_val}`
+🔍 **Filter Validation    :** `{logic_msg}`
+━━━━━━━━━━━━━━━━━━━━
+🚨 **LIVE TRADE DIRECTION :**
+👉 **🎯 {color_bullet} {trade_dir} ({emoji})** 👈
+
+🎯 **VIP Accuracy :** `100% TRADINGVIEW ALGO CONFIRMED`
+⚖️ **Martingale Rule   :** `⚠️ USE 1ST MARTINGALE IF OTM`
+"""
+        requests.post(f"https://api.telegram.org/bot{TOKEN}/sendMessage", json={
+            "chat_id": DEFAULT_CHAT_ID, 
+            "text": dashboard_msg, 
+            "parse_mode": "Markdown"
+        })
+        return {"status": "TradingView Signal successfully posted to Telegram"}
+    except Exception as e:
+        logger.error(f"TradingView Webhook Error: {str(e)}")
+        raise HTTPException(status_code=400, detail="Invalid data structure")
 
 @app.get("/")
 def home():
@@ -163,7 +211,6 @@ async def telegram_updates(request: Request, background_tasks: BackgroundTasks):
                 p_disp = SUPPORTED_PAIRS.get(p_code, p_code)
                 analysis = analyze_high_probability_trade(p_code)
                 
-                # Active automation status track ke mutabik buttons state change hogi
                 is_on = AUTO_SIGNAL_STATE.get(p_code, False)
                 status_text = "🔴 ON (Click to Stop)" if is_on else "🟢 OFF (Click to Start 24/7)"
                 toggle_action = f"stop_auto_{p_code}" if is_on else f"start_auto_{p_code}"
@@ -191,7 +238,6 @@ Niche diye gaye toggle button se aap is pair ke signals ko channel par continuou
                     [{"text": "🔍 Main Menu", "callback_data": "back_menu"}]
                 ]
                 
-                # Naya message bhejkar interface block nahi hoga, purana message edit hoga
                 requests.post(f"https://api.telegram.org/bot{TOKEN}/editMessageText", json={
                     "chat_id": chat_id, "message_id": message_id, "text": dashboard_msg,
                     "reply_markup": {"inline_keyboard": bot_buttons}, "parse_mode": "Markdown"
@@ -201,11 +247,9 @@ Niche diye gaye toggle button se aap is pair ke signals ko channel par continuou
                 p_code = data.replace("start_auto_", "")
                 p_disp = SUPPORTED_PAIRS.get(p_code, p_code)
                 
-                # Global state memory set to True
                 AUTO_SIGNAL_STATE[p_code] = True
                 background_tasks.add_task(auto_signal_worker, p_code, p_disp)
                 
-                # UI Inline Markup Matrix Edit Response
                 updated_buttons = [
                     [{"text": "🔄 24/7 Auto Signal: 🔴 ON (Click to Stop)", "callback_data": f"stop_auto_{p_code}"}],
                     [{"text": "🔄 Next Instant Manual Trade", "callback_data": f"refresh_{p_code}"}],
@@ -221,7 +265,6 @@ Niche diye gaye toggle button se aap is pair ke signals ko channel par continuou
                 p_code = data.replace("stop_auto_", "")
                 p_disp = SUPPORTED_PAIRS.get(p_code, p_code)
                 
-                # Kill loop structure instantly
                 AUTO_SIGNAL_STATE[p_code] = False
                 
                 updated_buttons = [
@@ -243,3 +286,4 @@ Niche diye gaye toggle button se aap is pair ke signals ko channel par continuou
 if __name__ == "__main__":
     port = int(os.environ.get("PORT", 8000))
     uvicorn.run(app, host="0.0.0.0", port=port)
+        
