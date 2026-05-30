@@ -5,6 +5,7 @@ import os
 import logging
 import hashlib
 import time
+import random
 import requests
 from fastapi import FastAPI, Request
 import uvicorn
@@ -21,7 +22,7 @@ DEFAULT_CHAT_ID = "-1003993233052"
 BOT_USERNAME = "YOUR_BOT_USERNAME" 
 
 OWNER_MOBILE = "+91 8767812831"
-OWNER_EMAIL = "arjuntradar@gmail.com
+OWNER_EMAIL = "arjuntradar@gmail.com"  # Fixed missing closing quote
 
 app = FastAPI()
 
@@ -42,32 +43,33 @@ SUPPORTED_PAIRS = {
     "GOLDOTC": "GOLD OTC", "SILVEROTC": "SILVER OTC"
 }
 
+# Plan configuration helper
+PLAN_DETAILS = {
+   "plan_1D": {"name": "1 Days Premium", "price": "₹2"},
+    "plan_1m": {"name": "1 Month Premium", "price": "₹20,000"},
+    "plan_3m": {"name": "3 Month Premium (5% OFF)", "price": "₹60,000"},
+    "plan_6m": {"name": "6 Month Premium (10% OFF)", "price": "₹1,20,000"},
+    "plan_9m": {"name": "9 Month Premium (15% OFF)", "price": "₹1,80,000"},
+    "plan_1y": {"name": "1 Year Premium (25% OFF)", "price": "₹2,40,000"}
+}
+
+def get_plans_keyboard():
+    return {
+        "inline_keyboard": [
+                    [{"text": "⏱️ 1 Days - ₹2", "callback_data": "checkout_plan_1m"}],
+            [{"text": "⏱️ 1 Month - ₹20,000", "callback_data": "checkout_plan_1m"}],
+            [{"text": "⏱️ 3 Months - ₹60,000", "callback_data": "checkout_plan_3m"}],
+            [{"text": "⏱️ 6 Months - ₹1,20,000", "callback_data": "checkout_plan_6m"}],
+            [{"text": "⏱️ 9 Months - ₹1,80,000", "callback_data": "checkout_plan_9m"}],
+            [{"text": "⏱️ 1 Year - ₹2,40,000", "callback_data": "checkout_plan_1y"}],
+            [{"text": "🔙 Main Menu", "callback_data": "back_menu"}]
+        ]
+    }
+
 def get_subscription_text():
-    return f"""💎 **TRADEFATHER PREMIUM SUBSCRIPTION PLANS** 💎
+    return """💎 **TRADEFATHER PREMIUM SUBSCRIPTION** 💎
 ━━━━━━━━━━━━━━━━━━━━
-🎯 **Choose Your Plan & Boost Your Accuracy:**
-
-⏱️ **1 Month Plan:** ₹2
-⏱️ **1 Month Plan:** ₹20,000
-⏱️ **3 Month Plan:** ₹60,000 *(5% DISCOUNT)*
-⏱️ **6 Month Plan:** ₹1,20,000 *(10% DISCOUNT)*
-⏱️ **9 Month Plan:** ₹1,80,000 *(15% DISCOUNT)*
-⏱️ **1 Year Plan:** ₹2,40,000 *(25% DISCOUNT)*
-
-━━━━━━━━━━━━━━━━━━━━
-🏦 **PAYMENT RECEIVE ACCOUNT DETAILS:**
-👤 **Name:** ARJUN BASAK
-💳 **Account Number:** `2914509839`
-🏛️ **IFSC Code:** `KKBK001774`
-📱 **UPI ID:** `arjun876779@kotak`
-✨ **QR Code Status:** ALL UPI APPS SUPPORTED (GooglePay, PhonePe, Paytm)
-
-━━━━━━━━━━━━━━━━━━━━
-📞 **VIP CUSTOMER SUPPORT:**
-📱 **Phone Call / Live Trade Testing:** {OWNER_MOBILE}
-📧 **Email ID:** {OWNER_EMAIL}
-
-⚠️ *IMPORTANT: Payment karne ke baad transaction ka screenshot support par send karein. Admin verification ke baad hi aapko VIP link milega.*"""
+🎯 **Choose your premium duration plan from below to proceed to the secure payment checkout gateway:**"""
 
 def get_support_footer():
     return f"""━━━━━━━━━━━━━━━━━━━━
@@ -143,16 +145,11 @@ async def telegram_updates(request: Request):
             chat_id = update["message"]["chat"]["id"]
             text = update["message"].get("text", "")
             
-            # Jab user public channel ke button se bot par plans dekhne aayega
             if text.startswith("/start sub"):
                 requests.post(f"https://api.telegram.org/bot{TOKEN}/sendMessage", json={
                     "chat_id": chat_id, 
                     "text": get_subscription_text(), 
-                    "reply_markup": {
-                        "inline_keyboard": [
-                            [{"text": "🔙 Main Menu", "callback_data": "back_menu"}]
-                        ]
-                    },
+                    "reply_markup": get_plans_keyboard(),
                     "parse_mode": "Markdown"
                 })
             elif text in ["/start", "/signal", "menu"]:
@@ -168,16 +165,61 @@ async def telegram_updates(request: Request):
             
             requests.post(f"https://api.telegram.org/bot{TOKEN}/answerCallbackQuery", json={"callback_query_id": query["id"]})
             
-            # Jab user bot ke inbox me payment button click karega
+            # Step 1: User clicks subscription - show plans list
             if data == "show_subscription":
                 requests.post(f"https://api.telegram.org/bot{TOKEN}/sendMessage", json={
                     "chat_id": chat_id, 
                     "text": get_subscription_text(), 
+                    "reply_markup": get_plans_keyboard(),
+                    "parse_mode": "Markdown"
+                })
+
+            # Step 2: Dynamic Payment Checkout Window with QR details
+            elif data.startswith("checkout_plan_"):
+                plan_id = data.replace("checkout_plan_", "")
+                selected = PLAN_DETAILS.get(f"checkout_plan_{plan_id}" if not plan_id.startswith("plan_") else f"{plan_id}", {"name": "VIP Premium", "price": "₹20,000"})
+                
+                order_id = ''.join(random.choices('ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789', k=8))
+                
+                checkout_msg = f"""⚠️ **PAYMENT REQUIRED** ⚠️
+━━━━━━━━━━━━━━━━━━━━
+🛒 **Shop:** TradeFather VIP Signals
+📦 **Product:** {selected['name']}
+💰 **Amount:** `{selected['price']}`
+
+🏦 **MANUAL ACCOUNT DETAILS:**
+👤 **Name:** ARJUN BASAK
+💳 **Account:** `2914509839`
+🏛️ **IFSC:** `KKBK001774`
+📱 **UPI ID:** `arjun876779@kotak`
+
+✅ *After payment, send the screenshot along with Order ID to support.*
+⌛ *You have 5 minutes to complete the process.*
+
+━━━━━━━━━━━━━━━━━━━━
+🔄 **PAYMENT GATEWAY MONITOR:**
+🆔 **Order ID:** #{order_id}
+📊 **Status:** `PENDING / WAITING FOR SCREENSHOT`
+⌛ **Time Left:** `05:00 Mins`
+"""
+                # Dynamic response with payment gateway text layout
+                requests.post(f"https://api.telegram.org/bot{TOKEN}/sendMessage", json={
+                    "chat_id": chat_id, 
+                    "text": checkout_msg,
                     "reply_markup": {
                         "inline_keyboard": [
-                            [{"text": "🔙 Back to Main Menu", "callback_data": "back_menu"}]
+                            [{"text": "🔄 Check Status", "callback_data": f"check_{order_id}"}],
+                            [{"text": "🔙 Back to Plans", "callback_data": "show_subscription"}]
                         ]
                     },
+                    "parse_mode": "Markdown"
+                })
+
+            elif data.startswith("check_"):
+                order_id = data.replace("check_", "")
+                requests.post(f"https://api.telegram.org/bot{TOKEN}/sendMessage", json={
+                    "chat_id": chat_id,
+                    "text": f"⚠️ **Order #{order_id} Status:**\nStill `PENDING`. Processing can take up to 2-5 minutes after you send the screenshot to the support team.",
                     "parse_mode": "Markdown"
                 })
 
@@ -210,7 +252,6 @@ async def telegram_updates(request: Request):
 ⚖️ **Martingale Rule   :** `⚠️ USE 1ST MARTINGALE IF OTM`
 {get_support_footer()}"""
 
-                # 1. BOT INBOX BUTTONS (Isme se Join VIP hata diya hai taaki bina pay kiye link na mile)
                 bot_buttons = [
                     [{"text": "💳 BUY PAID SUBSCRIPTION", "callback_data": "show_subscription"}],
                     [{"text": "🔄 Next Trade", "callback_data": f"select_{p_code}"}, {"text": "🔍 Main Menu", "callback_data": "back_menu"}]
@@ -220,7 +261,6 @@ async def telegram_updates(request: Request):
                     "reply_markup": {"inline_keyboard": bot_buttons}, "parse_mode": "Markdown"
                 })
                 
-                # 2. 🔥 PUBLIC CHANNEL BUTTONS (Sirf payment ke liye direct bot inbox link)
                 channel_buttons = [
                     [{"text": "💳 BUY PAID SUBSCRIPTION", "url": f"https://t.me/{BOT_USERNAME}?start=sub"}]
                 ]
