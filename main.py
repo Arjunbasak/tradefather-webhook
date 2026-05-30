@@ -1,5 +1,5 @@
 # ==================================================
-# FINAL COMPREHENSIVE PRODUCTION: ALL 37 ASSETS ENGINE
+# FINAL COMPREHENSIVE PRODUCTION: REAL-TIME AUTOMATIC PAYMENT SYSTEM
 # ==================================================
 import os
 import logging
@@ -17,12 +17,15 @@ logger = logging.getLogger(__name__)
 TOKEN = "8735814245:AAFk849g-0ZEmZDINRwyWMTGSCzcOg5yRFg"
 VIP_LINK = "https://t.me/+Nx_7ZeyV5UYyMWM1" 
 DEFAULT_CHAT_ID = "-1003993233052"          
-
-# ⚠️ APNE BOT KA USERNAME YAHAN LIKHEIN (Bina @ ke, jaise: TradeFather_bot)
 BOT_USERNAME = "YOUR_BOT_USERNAME" 
 
 OWNER_MOBILE = "+91 8767812831"
 OWNER_EMAIL = "arjuntradar@gmail.com"
+
+# 🔑 GATEWAY INTEGRATION (upigateway.com / Sabse sasta aur automatic UPI checking merchant)
+# Apni API Key aur UPI ID yahan configure karein taaki real-time checks kaam karein
+GATEWAY_API_KEY = "YOUR_UPIGATEWAY_API_KEY"  
+MERCHANT_UPI_ID = "arjun876779@kotak"
 
 app = FastAPI()
 
@@ -43,20 +46,19 @@ SUPPORTED_PAIRS = {
     "GOLDOTC": "GOLD OTC", "SILVEROTC": "SILVER OTC"
 }
 
-# 📦 PLAN META DETAILS CONFIGURATION (As per video data mapping)
 PLAN_DETAILS = {
-    "plan_1d": {"name": "1 Day Premium Trial", "price": "2.00", "duration": "day"},
-    "plan_1m": {"name": "1 Month Premium Pack", "price": "20,000.00", "duration": "month"},
-    "plan_3m": {"name": "3 Month Premium (5% OFF)", "price": "60,000.00", "duration": "3 months"},
-    "plan_6m": {"name": "6 Month Premium (10% OFF)", "price": "1,20,000.00", "duration": "6 months"},
-    "plan_9m": {"name": "9 Month Premium (15% OFF)", "price": "1,80,000.00", "duration": "9 months"},
-    "plan_1y": {"name": "1 Year Premium (25% OFF)", "price": "2,40,000.00", "duration": "1 year"}
+    "plan_1d": {"name": "1 Day Premium Trial", "price": "2.00", "duration": "day", "amt_raw": 2},
+    "plan_1m": {"name": "1 Month Premium Pack", "price": "20,000.00", "duration": "month", "amt_raw": 20000},
+    "plan_3m": {"name": "3 Month Premium (5% OFF)", "price": "60,000.00", "duration": "3 months", "amt_raw": 60000},
+    "plan_6m": {"name": "6 Month Premium (10% OFF)", "price": "1,20,000.00", "duration": "6 months", "amt_raw": 120000},
+    "plan_9m": {"name": "9 Month Premium (15% OFF)", "price": "1,80,000.00", "duration": "9 months", "amt_raw": 180000},
+    "plan_1y": {"name": "1 Year Premium (25% OFF)", "price": "2,40,000.00", "duration": "1 year", "amt_raw": 240000}
 }
 
 def get_subscription_text():
     return """💎 **TRADEFATHER PREMIUM SUBSCRIPTION PLANS** 💎
 ━━━━━━━━━━━━━━━━━━━━
-🎯 **Choose your premium plan duration to generate your dynamic payment interface:**"""
+🎯 **Choose your premium plan duration to generate your automatic checkout link:**"""
 
 def get_plans_keyboard():
     return {
@@ -88,6 +90,21 @@ def get_main_menu():
             keyboard.append(row)
             row = []
     return {"inline_keyboard": keyboard}
+
+def check_gateway_payment_status(client_txn_id):
+    """
+    UPIGateway standard status checking engine module.
+    Yeh function API call ke jariye automatic bank confirmation status fetch karta hai.
+    """
+    try:
+        url = "https://api.upigateway.com/v1/check_status"
+        payload = {"key": GATEWAY_API_KEY, "client_txn_id": client_txn_id}
+        response = requests.post(url, json=payload, timeout=8).json()
+        if response.get("status") is True and response.get("data", {}).get("status") == "SUCCESS":
+            return True
+    except Exception as e:
+        logger.error(f"Gateway connection issue: {str(e)}")
+    return False
 
 def analyze_high_probability_trade(pair_code):
     current_time_slot = int(time.time() / 60)
@@ -134,7 +151,7 @@ def analyze_high_probability_trade(pair_code):
 
 @app.get("/")
 def home():
-    return {"status": "TradeFather All 37 Assets Successfully Connected"}
+    return {"status": "TradeFather Automated Billing Engine Online"}
 
 @app.post("/telegram-updates")
 async def telegram_updates(request: Request):
@@ -165,7 +182,6 @@ async def telegram_updates(request: Request):
             
             requests.post(f"https://api.telegram.org/bot{TOKEN}/answerCallbackQuery", json={"callback_query_id": query["id"]})
             
-            # Action 1: Show plans selection dashboard
             if data == "show_subscription":
                 requests.post(f"https://api.telegram.org/bot{TOKEN}/sendMessage", json={
                     "chat_id": chat_id, 
@@ -174,28 +190,25 @@ async def telegram_updates(request: Request):
                     "parse_mode": "Markdown"
                 })
 
-            # Action 2: Process selection and output custom payload with absolute checkout lock
             elif data.startswith("pay_plan_"):
                 plan_key = data.replace("pay_plan_", "")
-                target_plan = PLAN_DETAILS.get(f"plan_{plan_key}", {"name": "Premium Plan", "price": "2.00", "duration": "day"})
+                target_plan = PLAN_DETAILS.get(f"plan_{plan_key}")
                 
-                # Generate unique dynamic validation data 
-                order_id = ''.join(random.choices('ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789', k=8))
+                # Dynamic Merchant Transaction Reference generation
+                client_txn_id = f"TXN{int(time.time())}{random.randint(100,999)}"
                 current_timestamp = time.strftime("%d/%m/%Y, %I:%M:%S %p")
                 
-                # Dynamic QR mapping using upi address logic (Native string structuring)
-                upi_string = f"upi://pay?pa=arjun876779@kotak&pn=ARJUN%20BASAK&am={target_plan['price'].replace(',', '')}&cu=INR"
+                # Real UPI Dynamic String formulation for Automatic Merchant Tracking
+                upi_string = f"upi://pay?pa={MERCHANT_UPI_ID}&pn=ARJUN%20BASAK&am={target_plan['amt_raw']}&tr={client_txn_id}&cu=INR"
                 qr_url = f"https://api.qrserver.com/v1/create-qr-code/?size=300x300&data={upi_string}"
                 
-                # 1. First send the custom dynamic QR Code Invoice to user
                 invoice_caption = f"""🛍️ **Shop:** TradeFather Signals
 📦 **Product:** {target_plan['name']}
-⏱️ **Duration:** `{target_plan['duration']}`
 💰 **Amount:** `₹{target_plan['price']}`
 📅 **IST:** {current_timestamp}
 
-✅ *After successful payment, system tracking requires you to forward your transaction screenshot directly to support.*
-⏳ *You have exactly 5 minutes to complete the dynamic transaction process.*"""
+⚠️ **AUTOMATIC VERIFICATION METRICS:**
+Aap kisi bhi UPI App (GooglePay, PhonePe, Paytm) se QR code scan karke payment complete karein. Payment hone ke baad niche **"🔄 Verify My Payment"** button par click karein. System automatic bank se response match karega."""
                 
                 requests.post(f"https://api.telegram.org/bot{TOKEN}/sendPhoto", json={
                     "chat_id": chat_id,
@@ -204,41 +217,53 @@ async def telegram_updates(request: Request):
                     "parse_mode": "Markdown"
                 })
                 
-                # 2. Immediately print the secure locked tracking message block (Sem to sem as video layout)
-                tracker_msg = f"""⏳ **Payment Checking...**
+                tracker_msg = f"""⏳ **Awaiting Bank Confirmation...**
 ━━━━━━━━━━━━━━━━━━━━
-🛍️ **Shop:** TradeFather Signals
-🆔 **Order:** `{order_id}`
-📦 **Product:** {target_plan['name']}
-⏱️ **Duration:** `{target_plan['duration']}`
-💰 **Amount:** `₹{target_plan['price']}`
+🆔 **Txn ID:** `{client_txn_id}`
+📊 **Payment Status:** `PENDING / PROCESSING`
 
-📈 **Progress:** [█░░░░░░░░░░░░░░░░░░░] 5%
-⏳ **Time Left:** `04:59 Mins`
-
-📊 **Payment Status:** `PENDING / WAITING FOR SCREENSHOT`
-📝 **Last Checked (IST):** `{current_timestamp}`
-"""
+*Note: Kisi manual screenshot ki zarurat nahi hai, jab aap payment kar dein tabhi niche diye gaye verification button par click karein.*"""
+                
                 requests.post(f"https://api.telegram.org/bot{TOKEN}/sendMessage", json={
                     "chat_id": chat_id,
                     "text": tracker_msg,
                     "reply_markup": {
                         "inline_keyboard": [
-                            [{"text": "🔄 Check Payment Status", "callback_data": f"verify_{order_id}"}],
-                            [{"text": "🔙 Cancel & Main Menu", "callback_data": "back_menu"}]
+                            [{"text": "🔄 Verify My Payment", "callback_data": f"verify_{client_txn_id}"}],
+                            [{"text": "🔙 Cancel Transaction", "callback_data": "back_menu"}]
                         ]
                     },
                     "parse_mode": "Markdown"
                 })
 
-            # Continuous status check routing block to safely lock access
             elif data.startswith("verify_"):
-                ord_id = data.replace("verify_", "")
-                requests.post(f"https://api.telegram.org/bot{TOKEN}/sendMessage", json={
-                    "chat_id": chat_id,
-                    "text": f"❌ **Verification Failed (Order #{ord_id})**\n\nPayment receipt screenshot was not detected by the system yet. Please forward your payment success page screenshot to the Admin team for explicit manual override.",
-                    "parse_mode": "Markdown"
-                })
+                txn_id = data.replace("verify_", "")
+                
+                # Real-time bank automation check routing call
+                is_success = check_gateway_payment_status(txn_id)
+                
+                if is_success:
+                    # STRICT CONDITIONAL ACCESS DELIVERABLE - Link only visible after real bank confirmation
+                    success_text = f"""🎉 **PAYMENT RECEIVED SUCCESSFULLY!** 🎉
+━━━━━━━━━━━━━━━━━━━━
+Aapka automatic payment confirmation complete ho gaya hai. Premium systems active hain!
+
+👇 **Niche link par click karke private VIP Channel join karein:**
+✨ [JOIN PRIVATE VIP CHANNEL]({VIP_LINK}) ✨
+
+Welcome to the TradeFather family! 🦅"""
+                    requests.post(f"https://api.telegram.org/bot{TOKEN}/sendMessage", json={
+                        "chat_id": chat_id,
+                        "text": success_text,
+                        "parse_mode": "Markdown"
+                    })
+                else:
+                    # Payment fail/pending protection error alert
+                    requests.post(f"https://api.telegram.org/bot{TOKEN}/sendMessage", json={
+                        "chat_id": chat_id,
+                        "text": f"❌ **Transaction Not Found or Pending!**\n\nHamein Txn ID `{txn_id}` ke liye abhi tak bank confirmation receive nahi hua hai. Agar aapne payment kar diya hai to 10-20 seconds wait karke dubara click karein.",
+                        "parse_mode": "Markdown"
+                    })
 
             elif data == "back_menu":
                 requests.post(f"https://api.telegram.org/bot{TOKEN}/sendMessage", json={
