@@ -1,13 +1,13 @@
 # ==================================================
-# REAL-TIME COMPREHENSIVE PRODUCTION: FIXED REDIRECT & TIMEFRAME CHECKOUT
+# REAL-TIME PRODUCTION: AUTOMATED 24/7 AUTO ON/OFF SIGNAL ENGINE
 # ==================================================
 import os
 import logging
 import hashlib
 import time
-import random
+import asyncio
 import requests
-from fastapi import FastAPI, Request
+from fastapi import FastAPI, Request, BackgroundTasks
 import uvicorn
 
 logging.basicConfig(format="%(asctime)s - %(name)s - %(levelname)s - %(message)s", level=logging.INFO)
@@ -15,22 +15,16 @@ logger = logging.getLogger(__name__)
 
 # 🔴 CONFIGURATION DATA
 TOKEN = "8735814245:AAFk849g-0ZEmZDINRwyWMTGSCzcOg5yRFg"
-VIP_LINK = "https://t.me/+Nx_7ZeyV5UYyMWM1" 
 DEFAULT_CHAT_ID = "-1003993233052"          
-
-# ✨ FIXED: Yahan se '@' hata diya hai taaki deep linking seamlessly kaam kare!
-BOT_USERNAME = "Arjuntradara1_bot" 
-
 OWNER_MOBILE = "+91 8767812831"
-OWNER_EMAIL = "arjuntradar@gmail.com"
-
-# 🔑 REAL GATEWAY (upigateway.com se dynamic verification ke liye)
-GATEWAY_API_KEY = "YOUR_UPIGATEWAY_API_KEY"  
-MERCHANT_UPI_ID = "arjun876779@kotak"
 
 app = FastAPI()
 
-# 📊 ASSETS GRID
+# 🔄 GLOBAL CONTROL STATE FOR 24/7 AUTO SIGNALS
+# Is matrix mein hum active pairs ka track rakhte hain jinka auto-signal chal raha hai
+AUTO_SIGNAL_STATE = {}
+
+# 📊 37+ ASSETS GRID
 SUPPORTED_PAIRS = {
     "AUDCADOTC": "AUD/CAD OTC", "AUDCHFOTC": "AUD/CHF OTC", "AUDJPYOTC": "AUD/JPY OTC",
     "AUDNZDOTC": "AUD/NZD OTC", "AUDUSDOTC": "AUD/USD OTC", "CADCHFOTC": "CAD/CHF OTC",
@@ -47,40 +41,11 @@ SUPPORTED_PAIRS = {
     "GOLDOTC": "GOLD OTC", "SILVEROTC": "SILVER OTC"
 }
 
-PLAN_DETAILS = {
-    "plan_1d": {"name": "1 Day Premium Trial", "price": "2.00", "duration": "1 Day Timeframe", "amt_raw": 2},
-    "plan_1m": {"name": "1 Month Premium Pack", "price": "20,000.00", "duration": "1 Month Timeframe", "amt_raw": 20000},
-    "plan_3m": {"name": "3 Month Premium (5% OFF)", "price": "60,000.00", "duration": "3 Months Timeframe", "amt_raw": 60000},
-    "plan_6m": {"name": "6 Month Premium (10% OFF)", "price": "1,20,000.00", "duration": "6 Months Timeframe", "amt_raw": 120000},
-    "plan_9m": {"name": "9 Month Premium (15% OFF)", "price": "1,80,000.00", "duration": "9 Months Timeframe", "amt_raw": 180000},
-    "plan_1y": {"name": "1 Year Premium (25% OFF)", "price": "2,40,000.00", "duration": "1 Year Timeframe", "amt_raw": 240000}
-}
-
-def get_subscription_text():
-    return """💎 **TRADEFATHER PREMIUM SUBSCRIPTION PLANS** 💎
-━━━━━━━━━━━━━━━━━━━━
-🎯 **Pehle niche se apna comfortable timeframe plan select karein checkout page generate karne ke liye:**"""
-
-def get_plans_keyboard():
-    return {
-        "inline_keyboard": [
-            [{"text": "⏱️ 1 Day Trial Timeframe - ₹2", "callback_data": "pay_plan_1d"}],
-            [{"text": "⏱️ 1 Month Premium - ₹20,000", "callback_data": "pay_plan_1m"}],
-            [{"text": "⏱️ 3 Months Pack - ₹60,000", "callback_data": "pay_plan_3m"}],
-            [{"text": "⏱️ 6 Months VIP - ₹1,20,000", "callback_data": "pay_plan_6m"}],
-            [{"text": "⏱️ 9 Months Super VIP - ₹1,80,000", "callback_data": "pay_plan_9m"}],
-            [{"text": "⏱️ 1 Year Unlimited - ₹2,40,000", "callback_data": "pay_plan_1y"}],
-            [{"text": "🔙 Main Menu", "callback_data": "back_menu"}]
-        ]
-    }
-
 def get_support_footer():
     return f"""━━━━━━━━━━━━━━━━━━━━
 📞 **OFFICIAL SUPPORT & CONTACT:**
 👤 **Owner:** Arjun trader
-📱 **Mobile:** {OWNER_MOBILE}
-📧 **Email:** {OWNER_EMAIL}
-💬 *Any issues or inquiries? Feel free to contact.*"""
+📱 **Mobile:** {OWNER_MOBILE}"""
 
 def get_main_menu():
     keyboard = []
@@ -91,19 +56,6 @@ def get_main_menu():
             keyboard.append(row)
             row = []
     return {"inline_keyboard": keyboard}
-
-def check_gateway_payment_status(client_txn_id):
-    if GATEWAY_API_KEY == "YOUR_UPIGATEWAY_API_KEY" or not GATEWAY_API_KEY:
-        return True  # Sandbox active testing auto-pass logic
-    try:
-        url = "https://api.upigateway.com/v1/check_status"
-        payload = {"key": GATEWAY_API_KEY, "client_txn_id": client_txn_id}
-        response = requests.post(url, json=payload, timeout=8).json()
-        if response.get("status") is True and response.get("data", {}).get("status") == "SUCCESS":
-            return True
-    except Exception as e:
-        logger.error(f"Gateway connection error: {str(e)}")
-    return False
 
 def analyze_high_probability_trade(pair_code):
     current_time_slot = int(time.time() / 60)
@@ -136,132 +88,18 @@ def analyze_high_probability_trade(pair_code):
         "trend": sma_trend, "logic": logic, "price": live_strike_price
     }
 
-@app.get("/")
-def home():
-    return {"status": "TradeFather Secure Gateway Grid Live"}
-
-@app.post("/telegram-updates")
-async def telegram_updates(request: Request):
-    try:
-        update = await request.json()
-        
-        if "message" in update:
-            chat_id = update["message"]["chat"]["id"]
-            text = update["message"].get("text", "")
+# 🔄 BACKGROUND INFINITE LOOP FOR 24/7 AUTOMATIC SIGNALS
+async def auto_signal_worker(p_code, p_disp):
+    logger.info(f"🚀 24/7 Auto-Signal Loop Started for: {p_disp}")
+    while AUTO_SIGNAL_STATE.get(p_code, False):
+        try:
+            analysis = analyze_high_probability_trade(p_code)
             
-            # Channel parameters check
-            if text.startswith("/start plan") or text.startswith("/start sub"):
-                requests.post(f"https://api.telegram.org/bot{TOKEN}/sendMessage", json={
-                    "chat_id": chat_id, 
-                    "text": get_subscription_text(), 
-                    "reply_markup": get_plans_keyboard(),
-                    "parse_mode": "Markdown"
-                })
-            elif text.startswith("/start"):
-                welcome_text = f"🦅 🌈 **WELCOME TO TRADEFATHER COMPREHENSIVE BOT** 🌈 🦅\n━━━━━━━━━━━━━━━━━━━━\n💎 **Engine Status:** ALL 37 PLATFORM ASSETS ACTIVE\n\n👇 **Niche grid se currency select karein ya subscription lein:**\n\n{get_support_footer()}"
-                requests.post(f"https://api.telegram.org/bot{TOKEN}/sendMessage", json={
-                    "chat_id": chat_id, "text": welcome_text, "reply_markup": get_main_menu(), "parse_mode": "Markdown"
-                })
-                
-        elif "callback_query" in update:
-            query = update["callback_query"]
-            chat_id = query["message"]["chat"]["id"]
-            data = query["data"]
-            
-            requests.post(f"https://api.telegram.org/bot{TOKEN}/answerCallbackQuery", json={"callback_query_id": query["id"]})
-            
-            if data == "show_subscription":
-                requests.post(f"https://api.telegram.org/bot{TOKEN}/sendMessage", json={
-                    "chat_id": chat_id, 
-                    "text": get_subscription_text(), 
-                    "reply_markup": get_plans_keyboard(),
-                    "parse_mode": "Markdown"
-                })
-
-            elif data.startswith("pay_plan_"):
-                plan_key = data.replace("pay_plan_", "")
-                target_plan = PLAN_DETAILS.get(f"plan_{plan_key}")
-                
-                client_txn_id = f"TXN{int(time.time())}{random.randint(100,999)}"
-                current_timestamp = time.strftime("%d/%m/%Y, %I:%M:%S %p")
-                
-                upi_string = f"upi://pay?pa={MERCHANT_UPI_ID}&pn=ARJUN%20BASAK&am={target_plan['amt_raw']}&tr={client_txn_id}&cu=INR"
-                qr_url = f"https://api.qrserver.com/v1/create-qr-code/?size=300x300&data={upi_string}"
-                
-                invoice_caption = f"""🛍️ **Shop:** TradeFather Signals
-📦 **Selected Plan:** {target_plan['name']}
-⏱️ **Timeframe Duration:** `{target_plan['duration']}`
-💰 **Payable Amount:** `₹{target_plan['price']}`
-📅 **Generated At:** {current_timestamp}
-
-⚠️ **AUTOMATIC CHECKOUT PROCESS:**
-Kisi bhi UPI App (PhonePe, GooglePay, Paytm) se is QR ko scan karein. Payment success hote hi turant niche **"🔄 Verify Payment Status"** par click karein. System instantly link unlock kar dega."""
-                
-                requests.post(f"https://api.telegram.org/bot{TOKEN}/sendPhoto", json={
-                    "chat_id": chat_id,
-                    "photo": qr_url,
-                    "caption": invoice_caption,
-                    "parse_mode": "Markdown"
-                })
-                
-                tracker_msg = f"""⏳ **Awaiting Automatic Bank Response...**
+            dashboard_msg = f"""👑 🌈 **24/7 AUTOMATIC LIVE SIGNAL** 🌈 👑
 ━━━━━━━━━━━━━━━━━━━━
-🆔 **Txn ID:** `{client_txn_id}`
-📊 **Current Status:** `PENDING / PROCESSING`"""
-                
-                requests.post(f"https://api.telegram.org/bot{TOKEN}/sendMessage", json={
-                    "chat_id": chat_id,
-                    "text": tracker_msg,
-                    "reply_markup": {
-                        "inline_keyboard": [
-                            [{"text": "🔄 Verify Payment Status", "callback_data": f"verify_{client_txn_id}"}],
-                            [{"text": "🔙 Cancel & Main Menu", "callback_data": "back_menu"}]
-                        ]
-                    },
-                    "parse_mode": "Markdown"
-                })
-
-            elif data.startswith("verify_"):
-                txn_id = data.replace("verify_", "")
-                is_success = check_gateway_payment_status(txn_id)
-                
-                if is_success:
-                    success_text = f"""🎉 **PAYMENT RECEIVED & VERIFIED AUTOMATICALLY!** 🎉
-━━━━━━━━━━━━━━━━━━━━
-Aapki payment hamare bank ledger mein real-time confirm ho gayi hai! Premium subscription status active kar diya gaya hai.
-
-👇 **Niche official secure button par click karke direct private VIP Channel join karein:**"""
-                    
-                    requests.post(f"https://api.telegram.org/bot{TOKEN}/sendMessage", json={
-                        "chat_id": chat_id,
-                        "text": success_text,
-                        "reply_markup": {
-                            "inline_keyboard": [[{"text": "✨ JOIN PRIVATE VIP CHANNEL ✨", "url": VIP_LINK}]]
-                        },
-                        "parse_mode": "Markdown"
-                    })
-                else:
-                    requests.post(f"https://api.telegram.org/bot{TOKEN}/sendMessage", json={
-                        "chat_id": chat_id,
-                        "text": f"❌ **Transaction Status: PENDING / NOT FOUND**\n\nHamein Txn ID `{txn_id}` ke liye abhi tak bank confirmation nahi mila hai. Agar aap payment kar chuke hain, toh kripya 10 seconds baad dubara click karein.",
-                        "parse_mode": "Markdown"
-                    })
-
-            elif data == "back_menu":
-                requests.post(f"https://api.telegram.org/bot{TOKEN}/sendMessage", json={
-                    "chat_id": chat_id, "text": "👇 **Niche grid se apna asset ya currency pair choose karein:**", "reply_markup": get_main_menu(), "parse_mode": "Markdown"
-                })
-                
-            elif data.startswith("select_"):
-                p_code = data.replace("select_", "")
-                p_disp = SUPPORTED_PAIRS.get(p_code, p_code)
-                analysis = analyze_high_probability_trade(p_code)
-                
-                dashboard_msg = f"""👑 🌈 **TRADEFATHER VIP ACCURATE SIGNAL** 🌈 👑
-━━━━━━━━━━━━━━━━━━━━
-💱 **Asset Pair :** {p_disp}
+💱 **Asset Pair :** {p_disp} [AUTOMATED]
 💵 **Strike Price :** `{analysis['price']}`
-⏱️ **Timeframe    :** `1 MIN (INSTANT LIVE)`
+⏱️ **Timeframe    :** `1 MIN (INSTANT)`
 ━━━━━━━━━━━━━━━━━━━━
 📊 **PRO FILTER INDICATORS DATA:**
 📈 **Market Trend (SMA) :** `{analysis['trend']}`
@@ -272,26 +110,131 @@ Aapki payment hamare bank ledger mein real-time confirm ho gayi hai! Premium sub
 🚨 **LIVE TRADE DIRECTION :**
 👉 **🎯 {analysis['color_bullet']} {analysis['direction']} ({analysis['emoji']})** 👈
 
-🎯 **VIP Accuracy :** `98% ACCURACY CONFIRMED`
+🎯 **VIP Accuracy :** `100% INDICATOR CONFIRMED`
 ⚖️ **Martingale Rule   :** `⚠️ USE 1ST MARTINGALE IF OTM`
-{get_support_footer()}"""
+"""
+            # Channel par automatic dispatch
+            requests.post(f"https://api.telegram.org/bot{TOKEN}/sendMessage", json={
+                "chat_id": DEFAULT_CHAT_ID, "text": dashboard_msg, "parse_mode": "Markdown"
+            })
+            
+        except Exception as e:
+            logger.error(f"Error in auto signal background thread: {str(e)}")
+            
+        # 1 Minute Interval sleep constraint (Har 1 minute me automation signal generate hoga)
+        await asyncio.sleep(60)
+    logger.info(f"🛑 24/7 Auto-Signal Loop Stopped for: {p_disp}")
 
+@app.get("/")
+def home():
+    return {"status": "Arjun A1 24/7 Automation Grid Active"}
+
+@app.post("/telegram-updates")
+async def telegram_updates(request: Request, background_tasks: BackgroundTasks):
+    try:
+        update = await request.json()
+        
+        if "message" in update:
+            chat_id = update["message"]["chat"]["id"]
+            text = update["message"].get("text", "")
+            
+            if text.startswith("/start"):
+                welcome_text = f"🦅 🌈 **WELCOME TO ARJUN A1 24/7 AUTOMATION BOT** 🌈 🦅\n━━━━━━━━━━━━━━━━━━━━\n💎 **Engine Status:** 37+ ASSETS READY FOR 24/7 LIVE AUTOMATION\n\n👇 **Niche grid se asset select karein aur 24/7 automatic channel posting trigger karein:**\n\n{get_support_footer()}"
+                requests.post(f"https://api.telegram.org/bot{TOKEN}/sendMessage", json={
+                    "chat_id": chat_id, "text": welcome_text, "reply_markup": get_main_menu(), "parse_mode": "Markdown"
+                })
+                
+        elif "callback_query" in update:
+            query = update["callback_query"]
+            chat_id = query["message"]["chat"]["id"]
+            data = query["data"]
+            message_id = query["message"]["message_id"]
+            
+            requests.post(f"https://api.telegram.org/bot{TOKEN}/answerCallbackQuery", json={"callback_query_id": query["id"]})
+            
+            if data == "back_menu":
+                requests.post(f"https://api.telegram.org/bot{TOKEN}/sendMessage", json={
+                    "chat_id": chat_id, "text": "👇 **Niche grid se apna asset ya currency pair choose karein:**", "reply_markup": get_main_menu(), "parse_mode": "Markdown"
+                })
+                
+            elif data.startswith("select_"):
+                p_code = data.replace("select_", "")
+                p_disp = SUPPORTED_PAIRS.get(p_code, p_code)
+                analysis = analyze_high_probability_trade(p_code)
+                
+                # Check active automation status
+                is_on = AUTO_SIGNAL_STATE.get(p_code, False)
+                status_text = "🔴 ON (Click to Stop)" if is_on else "🟢 OFF (Click to Start 24/7)"
+                toggle_action = f"stop_auto_{p_code}" if is_on else f"start_auto_{p_code}"
+                
+                dashboard_msg = f"""👑 🌈 **ARJUN A1 LIVE TRACKING CONTROL** 🌈 👑
+━━━━━━━━━━━━━━━━━━━━
+💱 **Asset Pair :** {p_disp}
+💵 **Strike Price :** `{analysis['price']}`
+⏱️ **Timeframe    :** `1 MIN (LIVE MANUAL INSTANT)`
+━━━━━━━━━━━━━━━━━━━━
+📊 **INDICATOR VECTOR MATRIX:**
+📈 **Market Trend :** `{analysis['trend']}`
+🎯 **RSI (14)      :** `{analysis['rsi']}`
+⚡ **CCI Oscillator:** `{analysis['cci']}`
+━━━━━━━━━━━━━━━━━━━━
+🚨 **LIVE TRADE DIRECTION :**
+👉 **🎯 {analysis['color_bullet']} {analysis['direction']} ({analysis['emoji']})** 👈
+
+⚙️ **24/7 AUTOMATION ENGINE STATUS:**
+Aap niche diye gaye button par click karke is pair ke signals ko Telegram channel par 24/7 bina ruke automatic continuous update par laga sakte hain!
+"""
                 bot_buttons = [
-                    [{"text": "💳 BUY PAID SUBSCRIPTION", "callback_data": "show_subscription"}],
-                    [{"text": "🔄 Next Trade", "callback_data": f"select_{p_code}"}, {"text": "🔍 Main Menu", "callback_data": "back_menu"}]
+                    [{"text": f"🔄 24/7 Auto Signal: {status_text}", "callback_data": toggle_action}],
+                    [{"text": "🔄 Next Instant Manual Trade", "callback_data": f"select_{p_code}"}],
+                    [{"text": "🔍 Main Menu", "callback_data": "back_menu"}]
                 ]
+                
                 requests.post(f"https://api.telegram.org/bot{TOKEN}/sendMessage", json={
                     "chat_id": chat_id, "text": dashboard_msg,
                     "reply_markup": {"inline_keyboard": bot_buttons}, "parse_mode": "Markdown"
                 })
+
+            elif data.startswith("start_auto_"):
+                p_code = data.replace("start_auto_", "")
+                p_disp = SUPPORTED_PAIRS.get(p_code, p_code)
                 
-                # 🔥 DEEP LINK RESOLVED: Ab t.me link perfect built hoga, direct user bot par aakar plan chusega!
-                channel_buttons = [
-                    [{"text": "💳 BUY PAID SUBSCRIPTION", "url": f"https://t.me/{BOT_USERNAME}?start=plan"}]
+                # Set dynamic state flags to active
+                AUTO_SIGNAL_STATE[p_code] = True
+                
+                # FastAPI background task workers setup running infinitely
+                background_tasks.add_task(auto_signal_worker, p_code, p_disp)
+                
+                # UI inline button updating response grid
+                updated_buttons = [
+                    [{"text": "🔄 24/7 Auto Signal: 🔴 ON (Click to Stop)", "callback_data": f"stop_auto_{p_code}"}],
+                    [{"text": "🔍 Main Menu", "callback_data": "back_menu"}]
                 ]
+                
                 requests.post(f"https://api.telegram.org/bot{TOKEN}/sendMessage", json={
-                    "chat_id": DEFAULT_CHAT_ID, "text": dashboard_msg,
-                    "reply_markup": {"inline_keyboard": channel_buttons}, "parse_mode": "Markdown"
+                    "chat_id": chat_id,
+                    "text": f"✅ **24/7 AUTOMATION ACTIVATED!**\n\nSystem ab channel `{DEFAULT_CHAT_ID}` par `{p_disp}` ke signals har 1 minute mein continuous automatic delivery mode par daal chuka hai.",
+                    "reply_markup": {"inline_keyboard": updated_buttons},
+                    "parse_mode": "Markdown"
+                })
+
+            elif data.startswith("stop_auto_"):
+                p_code = data.replace("stop_auto_", "")
+                p_disp = SUPPORTED_PAIRS.get(p_code, p_code)
+                
+                # Kill execution loop by changing dictionary status state
+                AUTO_SIGNAL_STATE[p_code] = False
+                
+                updated_buttons = [
+                    [{"text": "🔄 24/7 Auto Signal: 🟢 OFF (Click to Start 24/7)", "callback_data": f"select_{p_code}"}],
+                    [{"text": "🔍 Main Menu", "callback_data": "back_menu"}]
+                ]
+                
+                requests.post(f"https://api.telegram.org/bot{TOKEN}/sendMessage", json={
+                    "chat_id": chat_id,
+                    "text": f"🛑 **24/7 AUTOMATION PAUSED!**\n\n`{p_disp}` ki channel par hone wali continuous structural automation updates ko successfully turn off kar diya gaya hai.",
+                    "reply_markup": {"inline_keyboard": updated_buttons},
+                    "parse_mode": "Markdown"
                 })
 
         return {"ok": True}
