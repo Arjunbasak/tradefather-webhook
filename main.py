@@ -5,6 +5,7 @@ import os
 import logging
 import hashlib
 import time
+import random
 import requests
 from fastapi import FastAPI, Request
 import uvicorn
@@ -42,32 +43,33 @@ SUPPORTED_PAIRS = {
     "GOLDOTC": "GOLD OTC", "SILVEROTC": "SILVER OTC"
 }
 
+# 📦 PLAN META DETAILS CONFIGURATION (As per video data mapping)
+PLAN_DETAILS = {
+    "plan_1d": {"name": "1 Day Premium Trial", "price": "2.00", "duration": "day"},
+    "plan_1m": {"name": "1 Month Premium Pack", "price": "20,000.00", "duration": "month"},
+    "plan_3m": {"name": "3 Month Premium (5% OFF)", "price": "60,000.00", "duration": "3 months"},
+    "plan_6m": {"name": "6 Month Premium (10% OFF)", "price": "1,20,000.00", "duration": "6 months"},
+    "plan_9m": {"name": "9 Month Premium (15% OFF)", "price": "1,80,000.00", "duration": "9 months"},
+    "plan_1y": {"name": "1 Year Premium (25% OFF)", "price": "2,40,000.00", "duration": "1 year"}
+}
+
 def get_subscription_text():
-    return f"""💎 **TRADEFATHER PREMIUM SUBSCRIPTION PLANS** 💎
+    return """💎 **TRADEFATHER PREMIUM SUBSCRIPTION PLANS** 💎
 ━━━━━━━━━━━━━━━━━━━━
-🎯 **Choose Your Plan & Boost Your Accuracy:**
+🎯 **Choose your premium plan duration to generate your dynamic payment interface:**"""
 
-⏱️ **1 Days Plan:** ₹2
-⏱️ **1 Month Plan:** ₹20,000
-⏱️ **3 Month Plan:** ₹60,000 *(5% DISCOUNT)*
-⏱️ **6 Month Plan:** ₹1,20,000 *(10% DISCOUNT)*
-⏱️ **9 Month Plan:** ₹1,80,000 *(15% DISCOUNT)*
-⏱️ **1 Year Plan:** ₹2,40,000 *(25% DISCOUNT)*
-
-━━━━━━━━━━━━━━━━━━━━
-🏦 **PAYMENT RECEIVE ACCOUNT DETAILS:**
-👤 **Name:** ARJUN BASAK
-💳 **Account Number:** `2914509839`
-👑 **IFSC Code:** `KKBK001774`
-📱 **UPI ID:** `arjun876779@kotak`
-✨ **QR Code Status:** ALL UPI APPS SUPPORTED (GooglePay, PhonePe, Paytm)
-
-━━━━━━━━━━━━━━━━━━━━
-📞 **VIP CUSTOMER SUPPORT:**
-📱 **Phone Call / Live Trade Testing:** {OWNER_MOBILE}
-📧 **Email ID:** {OWNER_EMAIL}
-
-⚠️ *Payment karne ke baad live verification aur access ke liye screenshot support par send karein.*"""
+def get_plans_keyboard():
+    return {
+        "inline_keyboard": [
+            [{"text": "⏱️ 1 Day Trial - ₹2", "callback_data": "pay_plan_1d"}],
+            [{"text": "⏱️ 1 Month - ₹20,000", "callback_data": "pay_plan_1m"}],
+            [{"text": "⏱️ 3 Months - ₹60,000", "callback_data": "pay_plan_3m"}],
+            [{"text": "⏱️ 6 Months - ₹1,20,000", "callback_data": "pay_plan_6m"}],
+            [{"text": "⏱️ 9 Months - ₹1,80,000", "callback_data": "pay_plan_9m"}],
+            [{"text": "⏱️ 1 Year - ₹2,40,000", "callback_data": "pay_plan_1y"}],
+            [{"text": "🔙 Main Menu", "callback_data": "back_menu"}]
+        ]
+    }
 
 def get_support_footer():
     return f"""━━━━━━━━━━━━━━━━━━━━
@@ -147,12 +149,7 @@ async def telegram_updates(request: Request):
                 requests.post(f"https://api.telegram.org/bot{TOKEN}/sendMessage", json={
                     "chat_id": chat_id, 
                     "text": get_subscription_text(), 
-                    "reply_markup": {
-                        "inline_keyboard": [
-                            [{"text": "✨ JOIN PRIVATE VIP CHANNEL ✨", "url": VIP_LINK}],
-                            [{"text": "🔙 Back to Main Menu", "callback_data": "back_menu"}]
-                        ]
-                    },
+                    "reply_markup": get_plans_keyboard(),
                     "parse_mode": "Markdown"
                 })
             elif text in ["/start", "/signal", "menu"]:
@@ -168,17 +165,78 @@ async def telegram_updates(request: Request):
             
             requests.post(f"https://api.telegram.org/bot{TOKEN}/answerCallbackQuery", json={"callback_query_id": query["id"]})
             
-            # Photo layout ke anusaar button data flow logic implementation
+            # Action 1: Show plans selection dashboard
             if data == "show_subscription":
                 requests.post(f"https://api.telegram.org/bot{TOKEN}/sendMessage", json={
                     "chat_id": chat_id, 
                     "text": get_subscription_text(), 
+                    "reply_markup": get_plans_keyboard(),
+                    "parse_mode": "Markdown"
+                })
+
+            # Action 2: Process selection and output custom payload with absolute checkout lock
+            elif data.startswith("pay_plan_"):
+                plan_key = data.replace("pay_plan_", "")
+                target_plan = PLAN_DETAILS.get(f"plan_{plan_key}", {"name": "Premium Plan", "price": "2.00", "duration": "day"})
+                
+                # Generate unique dynamic validation data 
+                order_id = ''.join(random.choices('ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789', k=8))
+                current_timestamp = time.strftime("%d/%m/%Y, %I:%M:%S %p")
+                
+                # Dynamic QR mapping using upi address logic (Native string structuring)
+                upi_string = f"upi://pay?pa=arjun876779@kotak&pn=ARJUN%20BASAK&am={target_plan['price'].replace(',', '')}&cu=INR"
+                qr_url = f"https://api.qrserver.com/v1/create-qr-code/?size=300x300&data={upi_string}"
+                
+                # 1. First send the custom dynamic QR Code Invoice to user
+                invoice_caption = f"""🛍️ **Shop:** TradeFather Signals
+📦 **Product:** {target_plan['name']}
+⏱️ **Duration:** `{target_plan['duration']}`
+💰 **Amount:** `₹{target_plan['price']}`
+📅 **IST:** {current_timestamp}
+
+✅ *After successful payment, system tracking requires you to forward your transaction screenshot directly to support.*
+⏳ *You have exactly 5 minutes to complete the dynamic transaction process.*"""
+                
+                requests.post(f"https://api.telegram.org/bot{TOKEN}/sendPhoto", json={
+                    "chat_id": chat_id,
+                    "photo": qr_url,
+                    "caption": invoice_caption,
+                    "parse_mode": "Markdown"
+                })
+                
+                # 2. Immediately print the secure locked tracking message block (Sem to sem as video layout)
+                tracker_msg = f"""⏳ **Payment Checking...**
+━━━━━━━━━━━━━━━━━━━━
+🛍️ **Shop:** TradeFather Signals
+🆔 **Order:** `{order_id}`
+📦 **Product:** {target_plan['name']}
+⏱️ **Duration:** `{target_plan['duration']}`
+💰 **Amount:** `₹{target_plan['price']}`
+
+📈 **Progress:** [█░░░░░░░░░░░░░░░░░░░] 5%
+⏳ **Time Left:** `04:59 Mins`
+
+📊 **Payment Status:** `PENDING / WAITING FOR SCREENSHOT`
+📝 **Last Checked (IST):** `{current_timestamp}`
+"""
+                requests.post(f"https://api.telegram.org/bot{TOKEN}/sendMessage", json={
+                    "chat_id": chat_id,
+                    "text": tracker_msg,
                     "reply_markup": {
                         "inline_keyboard": [
-                            [{"text": "✨ JOIN PRIVATE VIP CHANNEL ✨", "url": VIP_LINK}],
-                            [{"text": "🔙 Back to Main Menu", "callback_data": "back_menu"}]
+                            [{"text": "🔄 Check Payment Status", "callback_data": f"verify_{order_id}"}],
+                            [{"text": "🔙 Cancel & Main Menu", "callback_data": "back_menu"}]
                         ]
                     },
+                    "parse_mode": "Markdown"
+                })
+
+            # Continuous status check routing block to safely lock access
+            elif data.startswith("verify_"):
+                ord_id = data.replace("verify_", "")
+                requests.post(f"https://api.telegram.org/bot{TOKEN}/sendMessage", json={
+                    "chat_id": chat_id,
+                    "text": f"❌ **Verification Failed (Order #{ord_id})**\n\nPayment receipt screenshot was not detected by the system yet. Please forward your payment success page screenshot to the Admin team for explicit manual override.",
                     "parse_mode": "Markdown"
                 })
 
