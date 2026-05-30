@@ -1,5 +1,5 @@
 # ==================================================
-# REAL-TIME PRODUCTION: AUTOMATED 24/7 AUTO ON/OFF SIGNAL ENGINE
+# REAL-TIME PRODUCTION: AUTOMATED 24/7 AUTO ON/OFF SIGNAL ENGINE (FULLY FIXED)
 # ==================================================
 import os
 import logging
@@ -7,6 +7,8 @@ import hashlib
 import time
 import asyncio
 import requests
+import pandas as pd
+import numpy as np
 from fastapi import FastAPI, Request, BackgroundTasks
 import uvicorn
 
@@ -21,7 +23,6 @@ OWNER_MOBILE = "+91 8767812831"
 app = FastAPI()
 
 # 🔄 GLOBAL CONTROL STATE FOR 24/7 AUTO SIGNALS
-# Is matrix mein hum active pairs ka track rakhte hain jinka auto-signal chal raha hai
 AUTO_SIGNAL_STATE = {}
 
 # 📊 37+ ASSETS GRID
@@ -113,7 +114,7 @@ async def auto_signal_worker(p_code, p_disp):
 🎯 **VIP Accuracy :** `100% INDICATOR CONFIRMED`
 ⚖️ **Martingale Rule   :** `⚠️ USE 1ST MARTINGALE IF OTM`
 """
-            # Channel par automatic dispatch
+            # Channel par automatic message dispatch
             requests.post(f"https://api.telegram.org/bot{TOKEN}/sendMessage", json={
                 "chat_id": DEFAULT_CHAT_ID, "text": dashboard_msg, "parse_mode": "Markdown"
             })
@@ -121,13 +122,13 @@ async def auto_signal_worker(p_code, p_disp):
         except Exception as e:
             logger.error(f"Error in auto signal background thread: {str(e)}")
             
-        # 1 Minute Interval sleep constraint (Har 1 minute me automation signal generate hoga)
+        # Har 1 minute mein automated loop signal trigger karega
         await asyncio.sleep(60)
     logger.info(f"🛑 24/7 Auto-Signal Loop Stopped for: {p_disp}")
 
 @app.get("/")
 def home():
-    return {"status": "Arjun A1 24/7 Automation Grid Active"}
+    return {"status": "Arjun A1 24/7 Control Center Running"}
 
 @app.post("/telegram-updates")
 async def telegram_updates(request: Request, background_tasks: BackgroundTasks):
@@ -139,7 +140,7 @@ async def telegram_updates(request: Request, background_tasks: BackgroundTasks):
             text = update["message"].get("text", "")
             
             if text.startswith("/start"):
-                welcome_text = f"🦅 🌈 **WELCOME TO ARJUN A1 24/7 AUTOMATION BOT** 🌈 🦅\n━━━━━━━━━━━━━━━━━━━━\n💎 **Engine Status:** 37+ ASSETS READY FOR 24/7 LIVE AUTOMATION\n\n👇 **Niche grid se asset select karein aur 24/7 automatic channel posting trigger karein:**\n\n{get_support_footer()}"
+                welcome_text = f"🦅 🌈 **WELCOME TO ARJUN A1 24/7 AUTOMATION BOT** 🌈 🦅\n━━━━━━━━━━━━━━━━━━━━\n💎 **Engine Status:** 37+ ASSETS READY FOR 24/7 LIVE AUTOMATION\n\n👇 **Niche grid se asset select karein aur automatic channel posting trigger karein:**\n\n{get_support_footer()}"
                 requests.post(f"https://api.telegram.org/bot{TOKEN}/sendMessage", json={
                     "chat_id": chat_id, "text": welcome_text, "reply_markup": get_main_menu(), "parse_mode": "Markdown"
                 })
@@ -157,12 +158,12 @@ async def telegram_updates(request: Request, background_tasks: BackgroundTasks):
                     "chat_id": chat_id, "text": "👇 **Niche grid se apna asset ya currency pair choose karein:**", "reply_markup": get_main_menu(), "parse_mode": "Markdown"
                 })
                 
-            elif data.startswith("select_"):
-                p_code = data.replace("select_", "")
+            elif data.startswith("select_") or data.startswith("refresh_"):
+                p_code = data.replace("select_", "").replace("refresh_", "")
                 p_disp = SUPPORTED_PAIRS.get(p_code, p_code)
                 analysis = analyze_high_probability_trade(p_code)
                 
-                # Check active automation status
+                # Active automation status track ke mutabik buttons state change hogi
                 is_on = AUTO_SIGNAL_STATE.get(p_code, False)
                 status_text = "🔴 ON (Click to Stop)" if is_on else "🟢 OFF (Click to Start 24/7)"
                 toggle_action = f"stop_auto_{p_code}" if is_on else f"start_auto_{p_code}"
@@ -182,16 +183,17 @@ async def telegram_updates(request: Request, background_tasks: BackgroundTasks):
 👉 **🎯 {analysis['color_bullet']} {analysis['direction']} ({analysis['emoji']})** 👈
 
 ⚙️ **24/7 AUTOMATION ENGINE STATUS:**
-Aap niche diye gaye button par click karke is pair ke signals ko Telegram channel par 24/7 bina ruke automatic continuous update par laga sakte hain!
+Niche diye gaye toggle button se aap is pair ke signals ko channel par continuous automode par daal sakte hain.
 """
                 bot_buttons = [
                     [{"text": f"🔄 24/7 Auto Signal: {status_text}", "callback_data": toggle_action}],
-                    [{"text": "🔄 Next Instant Manual Trade", "callback_data": f"select_{p_code}"}],
+                    [{"text": "🔄 Next Instant Manual Trade", "callback_data": f"refresh_{p_code}"}],
                     [{"text": "🔍 Main Menu", "callback_data": "back_menu"}]
                 ]
                 
-                requests.post(f"https://api.telegram.org/bot{TOKEN}/sendMessage", json={
-                    "chat_id": chat_id, "text": dashboard_msg,
+                # Naya message bhejkar interface block nahi hoga, purana message edit hoga
+                requests.post(f"https://api.telegram.org/bot{TOKEN}/editMessageText", json={
+                    "chat_id": chat_id, "message_id": message_id, "text": dashboard_msg,
                     "reply_markup": {"inline_keyboard": bot_buttons}, "parse_mode": "Markdown"
                 })
 
@@ -199,42 +201,38 @@ Aap niche diye gaye button par click karke is pair ke signals ko Telegram channe
                 p_code = data.replace("start_auto_", "")
                 p_disp = SUPPORTED_PAIRS.get(p_code, p_code)
                 
-                # Set dynamic state flags to active
+                # Global state memory set to True
                 AUTO_SIGNAL_STATE[p_code] = True
-                
-                # FastAPI background task workers setup running infinitely
                 background_tasks.add_task(auto_signal_worker, p_code, p_disp)
                 
-                # UI inline button updating response grid
+                # UI Inline Markup Matrix Edit Response
                 updated_buttons = [
                     [{"text": "🔄 24/7 Auto Signal: 🔴 ON (Click to Stop)", "callback_data": f"stop_auto_{p_code}"}],
+                    [{"text": "🔄 Next Instant Manual Trade", "callback_data": f"refresh_{p_code}"}],
                     [{"text": "🔍 Main Menu", "callback_data": "back_menu"}]
                 ]
                 
-                requests.post(f"https://api.telegram.org/bot{TOKEN}/sendMessage", json={
-                    "chat_id": chat_id,
-                    "text": f"✅ **24/7 AUTOMATION ACTIVATED!**\n\nSystem ab channel `{DEFAULT_CHAT_ID}` par `{p_disp}` ke signals har 1 minute mein continuous automatic delivery mode par daal chuka hai.",
-                    "reply_markup": {"inline_keyboard": updated_buttons},
-                    "parse_mode": "Markdown"
+                requests.post(f"https://api.telegram.org/bot{TOKEN}/editMessageReplyMarkup", json={
+                    "chat_id": chat_id, "message_id": message_id,
+                    "reply_markup": {"inline_keyboard": updated_buttons}
                 })
 
             elif data.startswith("stop_auto_"):
                 p_code = data.replace("stop_auto_", "")
                 p_disp = SUPPORTED_PAIRS.get(p_code, p_code)
                 
-                # Kill execution loop by changing dictionary status state
+                # Kill loop structure instantly
                 AUTO_SIGNAL_STATE[p_code] = False
                 
                 updated_buttons = [
-                    [{"text": "🔄 24/7 Auto Signal: 🟢 OFF (Click to Start 24/7)", "callback_data": f"select_{p_code}"}],
+                    [{"text": "🔄 24/7 Auto Signal: 🟢 OFF (Click to Start 24/7)", "callback_data": f"start_auto_{p_code}"}],
+                    [{"text": "🔄 Next Instant Manual Trade", "callback_data": f"refresh_{p_code}"}],
                     [{"text": "🔍 Main Menu", "callback_data": "back_menu"}]
                 ]
                 
-                requests.post(f"https://api.telegram.org/bot{TOKEN}/sendMessage", json={
-                    "chat_id": chat_id,
-                    "text": f"🛑 **24/7 AUTOMATION PAUSED!**\n\n`{p_disp}` ki channel par hone wali continuous structural automation updates ko successfully turn off kar diya gaya hai.",
-                    "reply_markup": {"inline_keyboard": updated_buttons},
-                    "parse_mode": "Markdown"
+                requests.post(f"https://api.telegram.org/bot{TOKEN}/editMessageReplyMarkup", json={
+                    "chat_id": chat_id, "message_id": message_id,
+                    "reply_markup": {"inline_keyboard": updated_buttons}
                 })
 
         return {"ok": True}
