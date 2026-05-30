@@ -17,6 +17,9 @@ TOKEN = "8735814245:AAFk849g-0ZEmZDINRwyWMTGSCzcOg5yRFg"
 VIP_LINK = "https://t.me/+Nx_7ZeyV5UYyMWM1" 
 DEFAULT_CHAT_ID = "-1003993233052"          
 
+# ⚠️ APNE BOT KA USERNAME YAHAN LIKHEIN (Bina @ ke, jaise: TradeFather_bot)
+BOT_USERNAME = "YOUR_BOT_USERNAME" 
+
 OWNER_MOBILE = "+91 8767812831"
 OWNER_EMAIL = "arjunto" 
 
@@ -24,25 +27,47 @@ app = FastAPI()
 
 # 📊 100% COMPLETE ASSETS GRID
 SUPPORTED_PAIRS = {
-    # --- Group 1 ---
     "AUDCADOTC": "AUD/CAD OTC", "AUDCHFOTC": "AUD/CHF OTC", "AUDJPYOTC": "AUD/JPY OTC",
     "AUDNZDOTC": "AUD/NZD OTC", "AUDUSDOTC": "AUD/USD OTC", "CADCHFOTC": "CAD/CHF OTC",
     "CADJPYOTC": "CAD/JPY OTC", "CHFJPYOTC": "CHF/JPY OTC", "EURAUDOTC": "EUR/AUD OTC",
-    # --- Group 2 ---
     "EURCADOTC": "EUR/CAD OTC", "EURCHFOTC": "EUR/CHF OTC", "EURGBPOTC": "EUR/GBP OTC",
     "EURJPYOTC": "EUR/JPY OTC", "EURNZDOTC": "EUR/NZD OTC", "EURUSDOTC": "EUR/USD OTC",
     "GBPAUDOTC": "GBP/AUD OTC", "GBPCADOTC": "GBP/CAD OTC", "GBPCHFOTC": "GBP/CHF OTC",
-    # --- Group 3 ---
     "GBPJPYOTC": "GBP/JPY OTC", "GBPNZDOTC": "GBP/NZD OTC", "GBPUSDOTC": "GBP/USD OTC",
     "NZDCADOTC": "NZD/CAD OTC", "NZDCHFOTC": "NZD/CHF OTC", "NZDJPYOTC": "NZD/JPY OTC",
     "NZDUSDOTC": "NZD/USD OTC", "USDARSOTC": "USD/ARS OTC", "USDBDTOTC": "USD/BDT OTC",
-    # --- Group 4 ---
     "USDBRLOTC": "USD/BRL OTC", "USDCHFOTC": "USD/CHF OTC", "USDIDROTC": "USD/IDR OTC",
     "USDINROTC": "USD/INR OTC", "USDJPYOTC": "USD/JPY OTC", "USDMXNOTC": "USD/MXN OTC",
     "USDPKROTC": "USD/PKR OTC", "USDPHPOTC": "USD/PHP OTC", "USDZAROTC": "USD/ZAR OTC",
-    # --- Bonus Commodities / Stocks ---
     "GOLDOTC": "GOLD OTC", "SILVEROTC": "SILVER OTC"
 }
+
+def get_subscription_text():
+    return f"""💎 **TRADEFATHER PREMIUM SUBSCRIPTION PLANS** 💎
+━━━━━━━━━━━━━━━━━━━━
+🎯 **Choose Your Plan & Boost Your Accuracy:**
+
+⏱️ **1 Month Plan:** ₹2
+⏱️ **1 Month Plan:** ₹20,000
+⏱️ **3 Month Plan:** ₹60,000 *(5% DISCOUNT)*
+⏱️ **6 Month Plan:** ₹1,20,000 *(10% DISCOUNT)*
+⏱️ **9 Month Plan:** ₹1,80,000 *(15% DISCOUNT)*
+⏱️ **1 Year Plan:** ₹2,40,000 *(25% DISCOUNT)*
+
+━━━━━━━━━━━━━━━━━━━━
+🏦 **PAYMENT RECEIVE ACCOUNT DETAILS:**
+👤 **Name:** ARJUN BASAK
+💳 **Account Number:** `2914509839`
+🏛️ **IFSC Code:** `KKBK001774`
+📱 **UPI ID:** `arjun876779@kotak`
+✨ **QR Code Status:** ALL UPI APPS SUPPORTED (GooglePay, PhonePe, Paytm)
+
+━━━━━━━━━━━━━━━━━━━━
+📞 **VIP CUSTOMER SUPPORT:**
+📱 **Phone Call / Live Trade Testing:** {OWNER_MOBILE}
+📧 **Email ID:** {OWNER_EMAIL}
+
+⚠️ *Payment karne ke baad live verification aur access ke liye screenshot support par send karein.*"""
 
 def get_support_footer():
     return f"""━━━━━━━━━━━━━━━━━━━━
@@ -62,7 +87,6 @@ def get_main_menu():
             row = []
     return {"inline_keyboard": keyboard}
 
-# 🧠 ACCURACY OPTIMIZER FILTER (Bina Badlav ke)
 def analyze_high_probability_trade(pair_code):
     current_time_slot = int(time.time() / 60)
     seed_string = f"{pair_code}-{current_time_slot}"
@@ -110,9 +134,6 @@ def analyze_high_probability_trade(pair_code):
 def home():
     return {"status": "TradeFather All 37 Assets Successfully Connected"}
 
-# ====================================================================
-# 💬 TELEGRAM WEBHOOK CONTROLLER
-# ====================================================================
 @app.post("/telegram-updates")
 async def telegram_updates(request: Request):
     try:
@@ -122,7 +143,20 @@ async def telegram_updates(request: Request):
             chat_id = update["message"]["chat"]["id"]
             text = update["message"].get("text", "")
             
-            if text in ["/start", "/signal", "menu"]:
+            # Agar koi channel se "sub" command link click karke bot ke inbox me aata hai
+            if text.startswith("/start sub"):
+                requests.post(f"https://api.telegram.org/bot{TOKEN}/sendMessage", json={
+                    "chat_id": chat_id, 
+                    "text": get_subscription_text(), 
+                    "reply_markup": {
+                        "inline_keyboard": [
+                            [{"text": "✨ JOIN PRIVATE VIP CHANNEL ✨", "url": VIP_LINK}],
+                            [{"text": "🔙 Main Menu", "callback_data": "back_menu"}]
+                        ]
+                    },
+                    "parse_mode": "Markdown"
+                })
+            elif text in ["/start", "/signal", "menu"]:
                 welcome_text = f"🦅 🌈 **WELCOME TO TRADEFATHER COMPREHENSIVE BOT** 🌈 🦅\n━━━━━━━━━━━━━━━━━━━━\n💎 **Engine Status:** ALL 37 PLATFORM ASSETS ACTIVE\n📊 **System Filter:** LOSS PREVENTION MATRIX STABLE\n\n👇 **Niche grid se apni koi bhi currency ya asset select karein:**\n\n{get_support_footer()}"
                 requests.post(f"https://api.telegram.org/bot{TOKEN}/sendMessage", json={
                     "chat_id": chat_id, "text": welcome_text, "reply_markup": get_main_menu(), "parse_mode": "Markdown"
@@ -135,39 +169,15 @@ async def telegram_updates(request: Request):
             
             requests.post(f"https://api.telegram.org/bot{TOKEN}/answerCallbackQuery", json={"callback_query_id": query["id"]})
             
-            # --- SUBSCRIPTION PLANS DISPLAY DETAILED ---
             if data == "show_subscription":
-                sub_plans_text = f"""💎 **TRADEFATHER PREMIUM SUBSCRIPTION PLANS** 💎
-━━━━━━━━━━━━━━━━━━━━
-🎯 **Choose Your Plan & Boost Your Accuracy:**
-
-⏱️ **1 Days Plan:** ₹2
-⏱️ **1 Month Plan:** ₹20,000
-⏱️ **3 Month Plan:** ₹60,000 *(5% DISCOUNT)*
-⏱️ **6 Month Plan:** ₹1,20,000 *(10% DISCOUNT)*
-⏱️ **9 Month Plan:** ₹1,80,000 *(15% DISCOUNT)*
-⏱️ **1 Year Plan:** ₹2,40,000 *(25% DISCOUNT)*
-
-━━━━━━━━━━━━━━━━━━━━
-🏦 **PAYMENT RECEIVE ACCOUNT DETAILS:**
-👤 **Name:** ARJUN BASAK
-💳 **Account Number:** `2914509839`
-🏛️ **IFSC Code:** `KKNK001774`
-📱 **UPI ID:** `arjun876779@kotak`
-✨ **QR Code Status:** ALL UPI APPS SUPPORTED (GooglePay, PhonePe, Paytm)
-
-━━━━━━━━━━━━━━━━━━━━
-📞 **VIP CUSTOMER SUPPORT:**
-📱 **Phone Call / Live Trade Testing:** {OWNER_MOBILE}
-📧 **Email ID:** {OWNER_EMAIL}
-
-⚠️ *Payment karne ke baad live verification aur access ke liye screenshot support par send karein.*
-"""
                 requests.post(f"https://api.telegram.org/bot{TOKEN}/sendMessage", json={
                     "chat_id": chat_id, 
-                    "text": sub_plans_text, 
+                    "text": get_subscription_text(), 
                     "reply_markup": {
-                        "inline_keyboard": [[{"text": "🔙 Back to Main Menu", "callback_data": "back_menu"}]]
+                        "inline_keyboard": [
+                            [{"text": "✨ JOIN PRIVATE VIP CHANNEL ✨", "url": VIP_LINK}],
+                            [{"text": "🔙 Back to Main Menu", "callback_data": "back_menu"}]
+                        ]
                     },
                     "parse_mode": "Markdown"
                 })
@@ -180,7 +190,6 @@ async def telegram_updates(request: Request):
             elif data.startswith("select_"):
                 p_code = data.replace("select_", "")
                 p_disp = SUPPORTED_PAIRS.get(p_code, p_code)
-                
                 analysis = analyze_high_probability_trade(p_code)
                 
                 dashboard_msg = f"""👑 🌈 **TRADEFATHER VIP ACCURATE SIGNAL** 🌈 👑
@@ -200,24 +209,26 @@ async def telegram_updates(request: Request):
 
 🎯 **VIP Accuracy :** `98% ACCURACY CONFIRMED`
 ⚖️ **Martingale Rule   :** `⚠️ USE 1ST MARTINGALE IF OTM`
-{get_support_footer()}
-"""
-                # 🔥 FIX LAYOUT: Alag-alag rows (lines) me buttons specify kiye hain taaki Telegram miss na kare
+{get_support_footer()}"""
+
+                # 1. BOT INBOX BUTTONS (Normal Callback Buttons)
+                bot_buttons = [
+                    [{"text": "💳 BUY PAID SUBSCRIPTION", "callback_data": "show_subscription"}],
+                    [{"text": "🔄 Next Trade", "callback_data": f"select_{p_code}"}, {"text": "🔍 Main Menu", "callback_data": "back_menu"}]
+                ]
                 requests.post(f"https://api.telegram.org/bot{TOKEN}/sendMessage", json={
                     "chat_id": chat_id, "text": dashboard_msg,
-                    "reply_markup": {
-                        "inline_keyboard": [
-                            [{"text": "💳 BUY PAID SUBSCRIPTION", "callback_data": "show_subscription"}],
-                            [{"text": "🔄 Next Trade", "callback_data": f"select_{p_code}"}, {"text": "🔍 Main Menu", "callback_data": "back_menu"}]
-                        ]
-                    }, "parse_mode": "Markdown"
+                    "reply_markup": {"inline_keyboard": bot_buttons}, "parse_mode": "Markdown"
                 })
                 
-                # Public/Channel broadcast message mein naya VIP channel link block
+                # 2. 🔥 PUBLIC CHANNEL BUTTONS
+                channel_buttons = [
+                    [{"text": "💳 BUY PAID SUBSCRIPTION", "url": f"https://t.me/{BOT_USERNAME}?start=sub"}],
+                    [{"text": "✨ JOIN VIP CHANNEL ✨", "url": VIP_LINK}]
+                ]
                 requests.post(f"https://api.telegram.org/bot{TOKEN}/sendMessage", json={
                     "chat_id": DEFAULT_CHAT_ID, "text": dashboard_msg,
-                    "reply_markup": {"inline_keyboard": [[{"text": "✨ JOIN VIP CHANNEL ✨", "url": VIP_LINK}]]},
-                    "parse_mode": "Markdown"
+                    "reply_markup": {"inline_keyboard": channel_buttons}, "parse_mode": "Markdown"
                 })
 
         return {"ok": True}
