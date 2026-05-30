@@ -21,7 +21,7 @@ DEFAULT_CHAT_ID = "-1003993233052"
 BOT_USERNAME = "YOUR_BOT_USERNAME" 
 
 OWNER_MOBILE = "+91 8767812831"
-OWNER_EMAIL = "arjunto" 
+OWNER_EMAIL = "arjuntradar@gmail.com
 
 app = FastAPI()
 
@@ -67,7 +67,7 @@ def get_subscription_text():
 📱 **Phone Call / Live Trade Testing:** {OWNER_MOBILE}
 📧 **Email ID:** {OWNER_EMAIL}
 
-⚠️ *Payment karne ke baad live verification aur access ke liye screenshot support par send karein.*"""
+⚠️ *IMPORTANT: Payment karne ke baad transaction ka screenshot support par send karein. Admin verification ke baad hi aapko VIP link milega.*"""
 
 def get_support_footer():
     return f"""━━━━━━━━━━━━━━━━━━━━
@@ -143,14 +143,13 @@ async def telegram_updates(request: Request):
             chat_id = update["message"]["chat"]["id"]
             text = update["message"].get("text", "")
             
-            # Agar koi channel se "sub" command link click karke bot ke inbox me aata hai
+            # Jab user public channel ke button se bot par plans dekhne aayega
             if text.startswith("/start sub"):
                 requests.post(f"https://api.telegram.org/bot{TOKEN}/sendMessage", json={
                     "chat_id": chat_id, 
                     "text": get_subscription_text(), 
                     "reply_markup": {
                         "inline_keyboard": [
-                            [{"text": "✨ JOIN PRIVATE VIP CHANNEL ✨", "url": VIP_LINK}],
                             [{"text": "🔙 Main Menu", "callback_data": "back_menu"}]
                         ]
                     },
@@ -169,13 +168,13 @@ async def telegram_updates(request: Request):
             
             requests.post(f"https://api.telegram.org/bot{TOKEN}/answerCallbackQuery", json={"callback_query_id": query["id"]})
             
+            # Jab user bot ke inbox me payment button click karega
             if data == "show_subscription":
                 requests.post(f"https://api.telegram.org/bot{TOKEN}/sendMessage", json={
                     "chat_id": chat_id, 
                     "text": get_subscription_text(), 
                     "reply_markup": {
                         "inline_keyboard": [
-                            [{"text": "✨ JOIN PRIVATE VIP CHANNEL ✨", "url": VIP_LINK}],
                             [{"text": "🔙 Back to Main Menu", "callback_data": "back_menu"}]
                         ]
                     },
@@ -211,7 +210,7 @@ async def telegram_updates(request: Request):
 ⚖️ **Martingale Rule   :** `⚠️ USE 1ST MARTINGALE IF OTM`
 {get_support_footer()}"""
 
-                # 1. BOT INBOX BUTTONS (Normal Callback Buttons)
+                # 1. BOT INBOX BUTTONS (Isme se Join VIP hata diya hai taaki bina pay kiye link na mile)
                 bot_buttons = [
                     [{"text": "💳 BUY PAID SUBSCRIPTION", "callback_data": "show_subscription"}],
                     [{"text": "🔄 Next Trade", "callback_data": f"select_{p_code}"}, {"text": "🔍 Main Menu", "callback_data": "back_menu"}]
@@ -221,10 +220,9 @@ async def telegram_updates(request: Request):
                     "reply_markup": {"inline_keyboard": bot_buttons}, "parse_mode": "Markdown"
                 })
                 
-                # 2. 🔥 PUBLIC CHANNEL BUTTONS
+                # 2. 🔥 PUBLIC CHANNEL BUTTONS (Sirf payment ke liye direct bot inbox link)
                 channel_buttons = [
-                    [{"text": "💳 BUY PAID SUBSCRIPTION", "url": f"https://t.me/{BOT_USERNAME}?start=sub"}],
-                    [{"text": "✨ JOIN VIP CHANNEL ✨", "url": VIP_LINK}]
+                    [{"text": "💳 BUY PAID SUBSCRIPTION", "url": f"https://t.me/{BOT_USERNAME}?start=sub"}]
                 ]
                 requests.post(f"https://api.telegram.org/bot{TOKEN}/sendMessage", json={
                     "chat_id": DEFAULT_CHAT_ID, "text": dashboard_msg,
