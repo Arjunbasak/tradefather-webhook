@@ -14,15 +14,15 @@ logger = logging.getLogger(__name__)
 
 # 🔴 CONFIGURATION DATA
 TOKEN = "8735814245:AAFk849g-0ZEmZDINRwyWMTGSCzcOg5yRFg"
-VIP_LINK = "https://t.me/+4ZPssc8CaKQwNjU1" 
+VIP_LINK = "https://t.me/+Nx_7ZeyV5UYyMWM1" 
 DEFAULT_CHAT_ID = "-1003993233052"          
 
 OWNER_MOBILE = "+91 8767812831"
-OWNER_EMAIL = "arjuntradar@gmail.com"
+OWNER_EMAIL = "arjunto" 
 
 app = FastAPI()
 
-# 📊 100% COMPLETE ASSETS GRID (SAARI CURRENCIES, COMMODITIES, STOCKS JODE HAIN)
+# 📊 100% COMPLETE ASSETS GRID
 SUPPORTED_PAIRS = {
     # --- Group 1 ---
     "AUDCADOTC": "AUD/CAD OTC", "AUDCHFOTC": "AUD/CHF OTC", "AUDJPYOTC": "AUD/JPY OTC",
@@ -62,19 +62,17 @@ def get_main_menu():
             row = []
     return {"inline_keyboard": keyboard}
 
-# 🧠 ACCURACY OPTIMIZER FILTER WITH DYNAMIC RATIOS
+# 🧠 ACCURACY OPTIMIZER FILTER (Bina Badlav ke)
 def analyze_high_probability_trade(pair_code):
     current_time_slot = int(time.time() / 60)
     seed_string = f"{pair_code}-{current_time_slot}"
     hash_hex = hashlib.md5(seed_string.encode()).hexdigest()
     hash_int = int(hash_hex[:8], 16)
     
-    # Mathematical Breakdown for Quotex Indicators
     rsi_14 = 30 + (hash_int % 41)       
     cci_period = -150 + (hash_int % 300) 
     sma_trend = "UPTREND 📈" if (hash_int % 2 == 0) else "DOWNTREND 📉"
     
-    # Filter Reversal Logic
     if rsi_14 <= 43 or cci_period <= -85:
         direction = "CALL"
         emoji = "UP ⬆️"
@@ -137,7 +135,44 @@ async def telegram_updates(request: Request):
             
             requests.post(f"https://api.telegram.org/bot{TOKEN}/answerCallbackQuery", json={"callback_query_id": query["id"]})
             
-            if data == "back_menu":
+            # --- SUBSCRIPTION PLANS DISPLAY DETAILED ---
+            if data == "show_subscription":
+                sub_plans_text = f"""💎 **TRADEFATHER PREMIUM SUBSCRIPTION PLANS** 💎
+━━━━━━━━━━━━━━━━━━━━
+🎯 **Choose Your Plan & Boost Your Accuracy:**
+
+⏱️ **1 Day Plan:** ₹2
+⏱️ **1 Month Plan:** ₹20,000
+⏱️ **3 Month Plan:** ₹60,000 *(5% DISCOUNT)*
+⏱️ **6 Month Plan:** ₹1,20,000 *(10% DISCOUNT)*
+⏱️ **9 Month Plan:** ₹1,80,000 *(15% DISCOUNT)*
+⏱️ **1 Year Plan:** ₹2,40,000 *(25% DISCOUNT)*
+
+━━━━━━━━━━━━━━━━━━━━
+🏦 **PAYMENT RECEIVE ACCOUNT DETAILS:**
+👤 **Name:** ARJUN BASAK
+💳 **Account Number:** `2914509839`
+🏛️ **IFSC Code:** `KKNK001774`
+📱 **UPI ID:** `arjun876779@kotak`
+✨ **QR Code Status:** ALL UPI APPS SUPPORTED (GooglePay, PhonePe, Paytm)
+
+━━━━━━━━━━━━━━━━━━━━
+📞 **VIP CUSTOMER SUPPORT:**
+📱 **Phone Call / Live Trade Testing:** {OWNER_MOBILE}
+📧 **Email ID:** {OWNER_EMAIL}
+
+⚠️ *Payment karne ke baad live verification aur access ke liye screenshot support par send karein.*
+"""
+                requests.post(f"https://api.telegram.org/bot{TOKEN}/sendMessage", json={
+                    "chat_id": chat_id, 
+                    "text": sub_plans_text, 
+                    "reply_markup": {
+                        "inline_keyboard": [[{"text": "🔙 Back to Main Menu", "callback_data": "back_menu"}]]
+                    },
+                    "parse_mode": "Markdown"
+                })
+
+            elif data == "back_menu":
                 requests.post(f"https://api.telegram.org/bot{TOKEN}/sendMessage", json={
                     "chat_id": chat_id, "text": "👇 **Niche grid se apna asset ya currency pair choose karein:**", "reply_markup": get_main_menu(), "parse_mode": "Markdown"
                 })
@@ -167,11 +202,12 @@ async def telegram_updates(request: Request):
 ⚖️ **Martingale Rule   :** `⚠️ USE 1ST MARTINGALE IF OTM`
 {get_support_footer()}
 """
+                # 🔥 Yahan teenon buttons (Paid Sub, Next Trade, Main Menu) wapas add kar diye hain
                 requests.post(f"https://api.telegram.org/bot{TOKEN}/sendMessage", json={
                     "chat_id": chat_id, "text": dashboard_msg,
                     "reply_markup": {
                         "inline_keyboard": [
-                            [{"text": "✨ JOIN VIP CHANNEL ✨", "url": VIP_LINK}],
+                            [{"text": "💳 BUY PAID SUBSCRIPTION", "callback_data": "show_subscription"}],
                             [{"text": "🔄 Next Trade", "callback_data": f"select_{p_code}"}, {"text": "🔍 Main Menu", "callback_data": "back_menu"}]
                         ]
                     }, "parse_mode": "Markdown"
@@ -179,7 +215,7 @@ async def telegram_updates(request: Request):
                 
                 requests.post(f"https://api.telegram.org/bot{TOKEN}/sendMessage", json={
                     "chat_id": DEFAULT_CHAT_ID, "text": dashboard_msg,
-                    "reply_markup": {"inline_keyboard": [[{"text": "✨ JOIN VIP FOR MORE ✨", "url": VIP_LINK}]]},
+                    "reply_markup": {"inline_keyboard": [[{"text": "✨ JOIN VIP CHANNEL ✨", "url": VIP_LINK}]]},
                     "parse_mode": "Markdown"
                 })
 
