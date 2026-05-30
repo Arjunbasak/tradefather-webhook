@@ -141,7 +141,7 @@ async def telegram_updates(request: Request):
 ━━━━━━━━━━━━━━━━━━━━
 🎯 **Choose Your Plan & Boost Your Accuracy:**
 
-⏱️ **1 Day Plan:** ₹2
+⏱️ **1 Days Plan:** ₹2
 ⏱️ **1 Month Plan:** ₹20,000
 ⏱️ **3 Month Plan:** ₹60,000 *(5% DISCOUNT)*
 ⏱️ **6 Month Plan:** ₹1,20,000 *(10% DISCOUNT)*
@@ -202,7 +202,7 @@ async def telegram_updates(request: Request):
 ⚖️ **Martingale Rule   :** `⚠️ USE 1ST MARTINGALE IF OTM`
 {get_support_footer()}
 """
-                # 🔥 Yahan teenon buttons (Paid Sub, Next Trade, Main Menu) wapas add kar diye hain
+                # 🔥 FIX LAYOUT: Alag-alag rows (lines) me buttons specify kiye hain taaki Telegram miss na kare
                 requests.post(f"https://api.telegram.org/bot{TOKEN}/sendMessage", json={
                     "chat_id": chat_id, "text": dashboard_msg,
                     "reply_markup": {
@@ -213,6 +213,7 @@ async def telegram_updates(request: Request):
                     }, "parse_mode": "Markdown"
                 })
                 
+                # Public/Channel broadcast message mein naya VIP channel link block
                 requests.post(f"https://api.telegram.org/bot{TOKEN}/sendMessage", json={
                     "chat_id": DEFAULT_CHAT_ID, "text": dashboard_msg,
                     "reply_markup": {"inline_keyboard": [[{"text": "✨ JOIN VIP CHANNEL ✨", "url": VIP_LINK}]]},
