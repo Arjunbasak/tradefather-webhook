@@ -18,8 +18,8 @@ TOKEN = "8735814245:AAFk849g-0ZEmZDINRwyWMTGSCzcOg5yRFg"
 VIP_LINK = "https://t.me/+Nx_7ZeyV5UYyMWM1" 
 DEFAULT_CHAT_ID = "-1003993233052"          
 
-# ✨ Sahi integration ke liye apna exact bot username yahan bina @ ke likhein (e.g., "TradeFather_bot")
-BOT_USERNAME = "@Arjuntradara1_bot" 
+# ✨ FIXED: Yahan se '@' hata diya hai taaki deep linking seamlessly kaam kare!
+BOT_USERNAME = "Arjuntradara1_bot" 
 
 OWNER_MOBILE = "+91 8767812831"
 OWNER_EMAIL = "arjuntradar@gmail.com"
@@ -93,12 +93,8 @@ def get_main_menu():
     return {"inline_keyboard": keyboard}
 
 def check_gateway_payment_status(client_txn_id):
-    """
-    Automatic payment response module.
-    """
     if GATEWAY_API_KEY == "YOUR_UPIGATEWAY_API_KEY" or not GATEWAY_API_KEY:
-        # Testing Backup: Agar API key change nahi ki, toh development testing ke liye automatic True dega
-        return True
+        return True  # Sandbox active testing auto-pass logic
     try:
         url = "https://api.upigateway.com/v1/check_status"
         payload = {"key": GATEWAY_API_KEY, "client_txn_id": client_txn_id}
@@ -120,26 +116,14 @@ def analyze_high_probability_trade(pair_code):
     sma_trend = "UPTREND 📈" if (hash_int % 2 == 0) else "DOWNTREND 📉"
     
     if rsi_14 <= 43 or cci_period <= -85:
-        direction = "CALL"
-        emoji = "UP ⬆️"
-        color_bullet = "🟢"
-        logic = "RSI Oversold Pivot + Support Line Reversal"
+        direction, emoji, color_bullet, logic = "CALL", "UP ⬆️", "🟢", "RSI Oversold Pivot + Support Line Reversal"
     elif rsi_14 >= 57 or cci_period >= 85:
-        direction = "PUT"
-        emoji = "DOWN ⬇️"
-        color_bullet = "🔴"
-        logic = "RSI Overbought Resistance + Upper Band Rejection"
+        direction, emoji, color_bullet, logic = "PUT", "DOWN ⬇️", "🔴", "RSI Overbought Resistance + Upper Band Rejection"
     else:
         if hash_int % 3 == 0:
-            direction = "CALL"
-            emoji = "UP ⬆️"
-            color_bullet = "🟢"
-            logic = "Moving Average Golden Cross Confirmed"
+            direction, emoji, color_bullet, logic = "CALL", "UP ⬆️", "🟢", "Moving Average Golden Cross Confirmed"
         else:
-            direction = "PUT"
-            emoji = "DOWN ⬇️"
-            color_bullet = "🔴"
-            logic = "Supertrend Bearish Micro-Trend Continuation"
+            direction, emoji, color_bullet, logic = "PUT", "DOWN ⬇️", "🔴", "Supertrend Bearish Micro-Trend Continuation"
         
     base_prices = {"EUR": 1.08250, "USD": 83.4500, "GBP": 1.26400, "AUD": 0.66150, "NZD": 0.61200}
     prefix = pair_code[:3]
@@ -165,7 +149,7 @@ async def telegram_updates(request: Request):
             chat_id = update["message"]["chat"]["id"]
             text = update["message"].get("text", "")
             
-            # 🎯 FIX: Agar user /start dabata hai ya channel se redirect hokar aata hai, toh pehle Timeframe Plans screen khulegi!
+            # Channel parameters check
             if text.startswith("/start plan") or text.startswith("/start sub"):
                 requests.post(f"https://api.telegram.org/bot{TOKEN}/sendMessage", json={
                     "chat_id": chat_id, 
@@ -211,7 +195,7 @@ async def telegram_updates(request: Request):
 📅 **Generated At:** {current_timestamp}
 
 ⚠️ **AUTOMATIC CHECKOUT PROCESS:**
-Kisim bhi UPI App (PhonePe, GooglePay, Paytm) se is QR ko scan karein. Payment success hote hi turant niche **"🔄 Verify Payment Status"** par click karein. System instantly link unlock kar dega."""
+Kisi bhi UPI App (PhonePe, GooglePay, Paytm) se is QR ko scan karein. Payment success hote hi turant niche **"🔄 Verify Payment Status"** par click karein. System instantly link unlock kar dega."""
                 
                 requests.post(f"https://api.telegram.org/bot{TOKEN}/sendPhoto", json={
                     "chat_id": chat_id,
@@ -242,7 +226,6 @@ Kisim bhi UPI App (PhonePe, GooglePay, Paytm) se is QR ko scan karein. Payment s
                 is_success = check_gateway_payment_status(txn_id)
                 
                 if is_success:
-                    # ✅ STAGE DEPLOYMENT LINK UNLOCKED ONLY AFTER REAL SYSTEM SUCCESS
                     success_text = f"""🎉 **PAYMENT RECEIVED & VERIFIED AUTOMATICALLY!** 🎉
 ━━━━━━━━━━━━━━━━━━━━
 Aapki payment hamare bank ledger mein real-time confirm ho gayi hai! Premium subscription status active kar diya gaya hai.
@@ -302,8 +285,7 @@ Aapki payment hamare bank ledger mein real-time confirm ho gayi hai! Premium sub
                     "reply_markup": {"inline_keyboard": bot_buttons}, "parse_mode": "Markdown"
                 })
                 
-                # 🔥 STRICT CORRECTION: Ab jab channel mein post jayegi, toh button par click karte hi direct link NAI khulega!
-                # Yeh user ko seedhe aapke bot par lekar aayega aur automatic "Timeframe Plans" ki menu show karega!
+                # 🔥 DEEP LINK RESOLVED: Ab t.me link perfect built hoga, direct user bot par aakar plan chusega!
                 channel_buttons = [
                     [{"text": "💳 BUY PAID SUBSCRIPTION", "url": f"https://t.me/{BOT_USERNAME}?start=plan"}]
                 ]
