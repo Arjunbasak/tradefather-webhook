@@ -14,6 +14,7 @@ logger = logging.getLogger(__name__)
 TOKEN = "8735814245:AAFk849g-0ZEmZDINRwyWMTGSCzcOg5yRFg"
 DEFAULT_CHAT_ID = "-1003993233052"          
 OWNER_MOBILE = "+91 8767812831"
+OWNER_EMAIL = "arjuntradar@gmail.com"  # Added Email Variable
 
 app = FastAPI()
 
@@ -35,7 +36,20 @@ SUPPORTED_PAIRS = {
 }
 
 def get_support_footer():
-    return f"━━━━━━━━━━━━━━━━━━━━\n📞 **OFFICIAL SUPPORT & CONTACT:**\n👤 **Owner:** Arjun trader\n📱 **Mobile:** {OWNER_MOBILE}"
+    return f"""
+━━━━━━━━━━━━━━━━━━━━
+📞 **OFFICIAL SUPPORT & CONTACT**
+
+👤 **Owner:** Arjun Trader
+📱 **Mobile:** {OWNER_MOBILE}
+📧 **Email:** {OWNER_EMAIL}
+
+💎 **VIP SERVICE AVAILABLE**
+🔥 Premium Signals
+🔥 TradingView Setup Support
+🔥 Fast Customer Support
+🔥 Private VIP Access
+⚠️ *Trade Responsibly*"""
 
 def get_main_menu():
     keyboard = []
@@ -114,7 +128,19 @@ async def telegram_updates(request: Request):
             text = update["message"].get("text", "")
             
             if text.startswith("/start"):
-                welcome_text = f"🦅 🌈 **WELCOME TO ARJUN A1 REAL WEBHOOK BOT** 🌈 🦅\n━━━━━━━━━━━━━━━━━━━━\n💎 **Engine Status:** 37+ ASSETS READY FOR REAL TRADINGVIEW WEBHOOKS\n\n👇 **Niche pure assets ki grid check karein:**\n\n{get_support_footer()}"
+                welcome_text = f"""🦅 🌈 **WELCOME TO ARJUN A1 REAL WEBHOOK BOT** 🌈 🦅
+━━━━━━━━━━━━━━━━━━━━
+
+💎 **Engine Status:**
+37+ ASSETS READY FOR REAL TRADINGVIEW WEBHOOKS
+
+🔥 **VIP SERVICE AVAILABLE**
+📞 **Contact:** {OWNER_MOBILE}
+📧 **Email:** {OWNER_EMAIL}
+
+👇 **Niche pure assets ki grid check karein:**
+{get_support_footer()}"""
+                
                 requests.post(f"https://api.telegram.org/bot{TOKEN}/sendMessage", json={
                     "chat_id": chat_id, "text": welcome_text, "reply_markup": get_main_menu(), "parse_mode": "Markdown"
                 })
