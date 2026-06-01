@@ -13,14 +13,14 @@ DEFAULT_CHAT_ID = "-1003993233052"
 OWNER_MOBILE = "+91 8767812831"
 OWNER_EMAIL = "arjuntradar@gmail.com"
 
-# ⏱️ GLOBAL LIVE BINOMO/QUOTEX RUNTIME VARIABLES
+# ⏱️ GLOBAL LIVE RUNTIME VARIABLES
 CURRENT_PLATFORM = "Quotex" 
 DYNAMO_RUNTIME_STATUS = "10 Hours" 
 IS_DYNAMO_ACTIVE = True
 
 app = FastAPI()
 
-# 📊 ALL ASSETS MATRIX (QUOTEX + OLYMP TRADE + IMAGES ASSETS INCLUDED)
+# 📊 ALL ASSETS MATRIX
 SUPPORTED_PAIRS = {
     # Existing OTC Pairs
     "AUDCADOTC": "AUD/CAD OTC", "AUDCHFOTC": "AUD/CHF OTC", "AUDJPYOTC": "AUD/JPY OTC",
@@ -37,7 +37,7 @@ SUPPORTED_PAIRS = {
     "USDPKROTC": "USD/PKR OTC", "USDPHPOTC": "USD/PHP OTC", "USDZAROTC": "USD/ZAR OTC",
     "GOLDOTC": "GOLD OTC", "SILVEROTC": "SILVER OTC",
     
-    # Newly Added From Images (Olymp Trade & Normal Market Pairs)
+    # Newly Added From Images
     "CRYPTOIDX": "Crypto IDX", "BITCOINCASH": "Bitcoin Cash (OTC)", "SOLANA": "Solana (OTC)",
     "ETHEREUM": "Ethereum (OTC)", "BITCOIN": "Bitcoin", "UNISWAP": "Uniswap (OTC)",
     "PANCAKESWAP": "Pancake Swap (OTC)", "AUDCAD": "AUD/CAD", "AUDCHF": "AUD/CHF",
@@ -73,7 +73,6 @@ def get_main_menu():
     status_indicator = "🟢 ACTIVE" if IS_DYNAMO_ACTIVE else "🔴 INACTIVE"
     
     keyboard = [
-        # RESTORED: Binomo Signals Button back in place
         [
             {"text": "📊 Quotex Signals", "callback_data": "set_platform_Quotex"},
             {"text": "📉 Binomo Signals", "callback_data": "set_platform_Binomo"}
@@ -81,11 +80,9 @@ def get_main_menu():
         [
             {"text": "📈 Olymp Trade Signals", "callback_data": "set_platform_OlympTrade"}
         ],
-        # Timing Status Info Button shown to users
         [
             {"text": f"⏱️ Bot Status: {DYNAMO_RUNTIME_STATUS} [{status_indicator}]", "callback_data": "dynamo_status_click"}
         ],
-        # Admin Configuration Button
         [
             {"text": "⚙️ Admin Timing Control Panel", "callback_data": "admin_timing_menu"}
         ],
@@ -112,9 +109,8 @@ def get_admin_timing_keyboard():
 
 @app.get("/")
 def home():
-    return {"status": "Arjun A1 REAL Webhook Engine Running with Quotex, Binomo & Olymp Trade Configuration"}
+    return {"status": "Arjun A1 REAL Webhook Engine Running"}
 
-# 🎯 TRADINGVIEW ENDPOINT
 @app.post("/tradingview-webhook")
 async def tradingview_webhook(request: Request):
     try:
@@ -170,7 +166,6 @@ async def tradingview_webhook(request: Request):
         logger.error(f"Webhook Processing Error: {str(e)}")  
         return {"status": "error", "message": str(e)}
 
-# 🔄 TELEGRAM BOT COMMANDS AND CALLBACK HANDLING
 @app.post("/telegram-updates")
 async def telegram_updates(request: Request):
     global CURRENT_PLATFORM, DYNAMO_RUNTIME_STATUS, IS_DYNAMO_ACTIVE
@@ -218,7 +213,6 @@ Select an option below.
             if data == "ignore":
                 return {"ok": True}
 
-            # 1. Platform Switch Config
             if data.startswith("set_platform_"):
                 CURRENT_PLATFORM = data.replace("set_platform_", "")
                 platform_msg = f"✅ **Target Platform Changed to: {CURRENT_PLATFORM}**\n\nAb alerts mein user ko {CURRENT_PLATFORM} show hoga."
@@ -229,7 +223,6 @@ Select an option below.
                     "chat_id": chat_id, "message_id": message_id, "reply_markup": get_main_menu()
                 })
 
-            # 2. Timing Admin Panel Trigger
             elif data == "admin_timing_menu":
                 requests.post(f"https://api.telegram.org/bot{TOKEN}/editMessageText", json={
                     "chat_id": chat_id, "message_id": message_id,
@@ -237,7 +230,6 @@ Select an option below.
                     "reply_markup": get_admin_timing_keyboard(), "parse_mode": "Markdown"
                 })
 
-            # 3. Handle Timing Selection Updates
             elif data.startswith("time_"):
                 time_choice = data.replace("time_", "")
                 if time_choice == "1h":
@@ -263,7 +255,6 @@ Select an option below.
                     "parse_mode": "Markdown"
                 })
 
-            # 4. Asset Details Mapping
             elif data.startswith("tv_info_"):  
                 p_code = data.replace("tv_info_", "")  
                 p_disp = SUPPORTED_PAIRS.get(p_code, p_code)  
